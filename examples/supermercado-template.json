@@ -1,0 +1,72 @@
+{
+  "browser": "chromium",
+  "headless": true,
+  "url": "https://AQUI-VA-LA-URL-DEL-SUPERMERCADO",
+  "waitUntil": "networkidle",
+  "extraWaitMs": 2500,
+  "viewport": {
+    "width": 1440,
+    "height": 2200
+  },
+  "actions": [
+    {
+      "type": "waitForSelector",
+      "selector": ".product-card"
+    },
+    {
+      "type": "scroll",
+      "pixels": 1200,
+      "times": 4,
+      "delayMs": 1200
+    }
+  ],
+  "extract": {
+    "fields": {
+      "title": {
+        "type": "pageTitle"
+      },
+      "finalUrl": {
+        "type": "pageUrl"
+      }
+    },
+    "collection": {
+      "selector": ".product-card",
+      "fields": {
+        "producto": {
+          "selector": ".product-name",
+          "type": "text"
+        },
+        "categoria": {
+          "selector": ".product-category",
+          "type": "text"
+        },
+        "precio": {
+          "selector": ".product-price",
+          "type": "text"
+        },
+        "marca": {
+          "selector": ".product-brand",
+          "type": "text"
+        },
+        "presentacion": {
+          "selector": ".product-size",
+          "type": "text"
+        },
+        "link": {
+          "selector": "a",
+          "type": "href"
+        },
+        "imagen": {
+          "selector": "img",
+          "type": "src"
+        }
+      }
+    }
+  },
+  "output": {
+    "jsonPath": "output/supermercado/productos.json",
+    "csvPath": "output/supermercado/productos.csv",
+    "htmlPath": "output/supermercado/rendered.html",
+    "screenshotPath": "output/supermercado/page.png"
+  }
+}

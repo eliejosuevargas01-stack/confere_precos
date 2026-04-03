@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "domain": "redetoponline.com.br",
+  "sourceUrl": "https://www.redetoponline.com.br",
+  "query": "arroz",
+  "savedAt": "2026-04-03T20:01:07.231Z",
+  "previousSavedAt": null,
+  "bestCandidate": {
+    "candidateUrl": "https://www.redetoponline.com.br",
+    "finalUrl": "https://www.redetoponline.com.br/vitrines/46?type=vitrine-especifica&vitrine_ids=36134ff5-125c-11f1-beba-fa163e8b335c&title=Tudo%20em%20Chocolate!",
+    "title": "Tudo em Chocolate!",
+    "strategy": "network",
+    "selectorHint": "div.flex.flex-col.ng-star-inserted",
+    "productsFound": 80
+  },
+  "candidates": [
+    {
+      "inputUrl": "https://www.redetoponline.com.br",
+      "finalUrl": "https://www.redetoponline.com.br/vitrines/46?type=vitrine-especifica&vitrine_ids=36134ff5-125c-11f1-beba-fa163e8b335c&title=Tudo%20em%20Chocolate!",
+      "title": "Tudo em Chocolate!",
+      "strategy": "network",
+      "productsFound": 80,
+      "selectorHint": "div.flex.flex-col.ng-star-inserted",
+      "error": null
+    }
+  ]
+}
