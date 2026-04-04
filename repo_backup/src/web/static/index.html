@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comparador de Mercado</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Comparador de preços por cidade</p>
+          <h1>O mesmo produto, o menor preço, nas lojas certas.</h1>
+          <p class="lead">
+            Esta vitrine já abre com os dados salvos do monitoramento. Todos os
+            produtos encontrados entram no catálogo por categoria; quando o
+            mesmo item aparece em mais de uma loja, ele é agrupado e comparado
+            automaticamente.
+          </p>
+
+          <div class="hero-tags">
+            <span class="tag" id="hero-city">Cidade: carregando...</span>
+            <span class="tag" id="hero-updated">Atualizado: aguardando</span>
+            <span class="tag" id="hero-refresh">Nova rodada: aguardando</span>
+          </div>
+        </div>
+
+        <aside class="hero-panel">
+          <p class="hero-panel-label">Resumo da rodada</p>
+          <div class="hero-stats">
+            <article class="stat-card">
+              <span class="stat-label">Produtos no catálogo</span>
+              <strong id="stat-products">0</strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Categorias ativas</span>
+              <strong id="stat-categories">0</strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Lojas elegíveis</span>
+              <strong id="stat-sites">0</strong>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Destaques</span>
+              <strong id="stat-featured">0</strong>
+            </article>
+          </div>
+        </aside>
+      </header>
+
+      <section class="status-bar">
+        <div class="status-copy">
+          <span class="status-pill" id="status-pill">Carregando</span>
+          <p id="status-text">
+            Buscando o snapshot salvo para montar a vitrine.
+          </p>
+        </div>
+
+        <div class="store-strip" id="store-strip"></div>
+      </section>
+
+      <main class="workspace-shell">
+        <aside class="planner-panel" id="planner-panel">
+          <div class="section-head planner-head">
+            <div>
+              <p class="section-eyebrow">Lista inteligente</p>
+              <h2>Planejar compra</h2>
+            </div>
+            <p class="section-note">
+              Monte sua lista e veja onde economiza mais.
+            </p>
+          </div>
+
+          <div id="planner-content"></div>
+        </aside>
+
+        <div class="catalog-shell">
+          <section class="section-block controls-block">
+            <div class="section-head controls-head">
+              <div>
+                <p class="section-eyebrow">Explorar catálogo</p>
+                <h2>Buscar, filtrar e navegar</h2>
+              </div>
+              <p class="section-note" id="catalog-meta">
+                Carregando produtos e categorias.
+              </p>
+            </div>
+
+            <div class="catalog-toolbar">
+              <label class="search-field">
+                <span>Buscar produto</span>
+                <input
+                  id="catalog-search"
+                  type="search"
+                  placeholder="Marca, produto, embalagem ou loja"
+                  autocomplete="off"
+                />
+              </label>
+
+              <div class="filter-tabs" id="filter-tabs">
+                <button class="filter-chip is-active" data-mode="all" type="button">
+                  Tudo
+                </button>
+                <button class="filter-chip" data-mode="comparable" type="button">
+                  Mesmo produto em várias lojas
+                </button>
+                <button class="filter-chip" data-mode="promo" type="button">
+                  Só promoções
+                </button>
+              </div>
+            </div>
+
+            <nav class="category-nav" id="category-nav"></nav>
+            <nav class="subcategory-nav" id="subcategory-nav"></nav>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head">
+              <div>
+                <p class="section-eyebrow">Melhores achados</p>
+                <h2>Ofertas em destaque</h2>
+              </div>
+              <p class="section-note">
+                Menores preços já salvos do último processamento disponível.
+              </p>
+            </div>
+
+            <div class="featured-grid" id="featured-grid"></div>
+          </section>
+
+          <section class="section-block">
+            <div class="section-head">
+              <div>
+                <p class="section-eyebrow" id="catalog-eyebrow">Catálogo</p>
+                <h2 id="catalog-heading">Produtos por categoria</h2>
+              </div>
+              <p class="section-note" id="catalog-summary">
+                Organizado por categoria e subcategoria para navegar sem rolar a página inteira.
+              </p>
+            </div>
+
+            <div id="category-sections" class="category-sections"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

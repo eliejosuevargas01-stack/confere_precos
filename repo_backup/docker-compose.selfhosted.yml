@@ -1,0 +1,45 @@
+services:
+  marketwatch:
+    build: .
+    container_name: marketwatch
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      STOREFRONT_CITY: gaspar
+      STOREFRONT_REFRESH_MINUTES: 120
+      STOREFRONT_REFRESH_ON_START: "true"
+      STOREFRONT_CATEGORY_WORKERS: 2
+      STOREFRONT_MAX_ITEMS: 80
+      STOREFRONT_REFRESH_TOKEN: troque-este-token
+    volumes:
+      - ./links.txt:/app/links.txt
+      - storefront-data:/app/data
+      - storefront-output:/app/output
+      - storefront-profiles:/app/profiles
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: marketwatch-n8n
+    restart: unless-stopped
+    profiles:
+      - automation
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: admin
+      N8N_BASIC_AUTH_PASSWORD: troque-esta-senha
+    volumes:
+      - n8n-data:/home/node/.n8n
+
+volumes:
+  storefront-data:
+  storefront-output:
+  storefront-profiles:
+  n8n-data:

@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "domain": "komprao.com.br",
+  "sourceUrl": "https://www.komprao.com.br",
+  "query": "arroz",
+  "savedAt": "2026-04-03T20:00:44.639Z",
+  "previousSavedAt": null,
+  "bestCandidate": {
+    "candidateUrl": "https://www.komprao.com.br",
+    "finalUrl": "https://www.komprao.com.br/",
+    "title": "Komprão home",
+    "strategy": "none",
+    "selectorHint": null,
+    "productsFound": 0
+  },
+  "candidates": [
+    {
+      "inputUrl": "https://www.komprao.com.br",
+      "finalUrl": "https://www.komprao.com.br/",
+      "title": "Komprão home",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/listar.php",
+      "finalUrl": "https://www.komprao.com.br/listar.php",
+      "title": "404 Página não encontrada",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/produtos",
+      "finalUrl": "https://www.komprao.com.br/produtos",
+      "title": "404 Página não encontrada",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/ofertas",
+      "finalUrl": "https://www.komprao.com.br/ofertas-por-cidade",
+      "title": "Ofertas Komprao",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/ofertas-por-cidade",
+      "finalUrl": "https://www.komprao.com.br/ofertas-por-cidade",
+      "title": "Ofertas Komprao",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/catalogsearch/result/?q=arroz",
+      "finalUrl": "https://www.komprao.com.br/catalogsearch/result/?q=arroz",
+      "title": "Resultados da busca por: 'arroz'",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/busca/arroz",
+      "finalUrl": "https://www.komprao.com.br/busca/arroz",
+      "title": "404 Página não encontrada",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    },
+    {
+      "inputUrl": "https://www.komprao.com.br/busca?busca=arroz",
+      "finalUrl": "https://www.komprao.com.br/busca?busca=arroz",
+      "title": "404 Página não encontrada",
+      "strategy": "none",
+      "productsFound": 0,
+      "selectorHint": null,
+      "error": null
+    }
+  ]
+}

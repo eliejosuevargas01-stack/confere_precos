@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "domain": "superkoch.com.br",
+  "sourceUrl": "https://www.superkoch.com.br",
+  "query": "arroz",
+  "savedAt": "2026-04-03T19:59:44.311Z",
+  "previousSavedAt": null,
+  "bestCandidate": {
+    "candidateUrl": "https://www.superkoch.com.br",
+    "finalUrl": "https://www.superkoch.com.br/promocoes?ofertas_clube=true",
+    "title": "Promoções | Super Koch",
+    "strategy": "network",
+    "selectorHint": "div.item-product-wrapper.w-full",
+    "productsFound": 80
+  },
+  "candidates": [
+    {
+      "inputUrl": "https://www.superkoch.com.br",
+      "finalUrl": "https://www.superkoch.com.br/promocoes?ofertas_clube=true",
+      "title": "Promoções | Super Koch",
+      "strategy": "network",
+      "productsFound": 80,
+      "selectorHint": "div.item-product-wrapper.w-full",
+      "error": null
+    }
+  ]
+}

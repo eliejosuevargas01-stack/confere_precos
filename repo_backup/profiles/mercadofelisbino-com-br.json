@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "domain": "mercadofelisbino.com.br",
+  "sourceUrl": "https://www.mercadofelisbino.com.br",
+  "query": "arroz",
+  "savedAt": "2026-04-03T20:01:20.444Z",
+  "previousSavedAt": null,
+  "bestCandidate": {
+    "candidateUrl": "https://www.mercadofelisbino.com.br",
+    "finalUrl": "https://www.mercadofelisbino.com.br/",
+    "title": "Mercado Felisbino",
+    "strategy": "dom",
+    "selectorHint": "div.emarginborder.box-1.eround.shadow-1",
+    "productsFound": 39
+  },
+  "candidates": [
+    {
+      "inputUrl": "https://www.mercadofelisbino.com.br",
+      "finalUrl": "https://www.mercadofelisbino.com.br/",
+      "title": "Mercado Felisbino",
+      "strategy": "dom",
+      "productsFound": 39,
+      "selectorHint": "div.emarginborder.box-1.eround.shadow-1",
+      "error": null
+    }
+  ]
+}
