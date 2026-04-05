@@ -1,0 +1,13 @@
+.git
+.gitignore
+.next
+node_modules
+coverage
+data
+output
+profiles
+repo_backup
+*.log
+.env
+.env.local
+.env.backend

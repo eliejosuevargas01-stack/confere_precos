@@ -1,0 +1,25 @@
+services:
+  catalog-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: confere-precos-catalog-backend
+    restart: unless-stopped
+    command: npm run backend:start
+    ports:
+      - "${BACKEND_PORT_HOST:-3100}:3100"
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 3100
+      CATALOG_API_DATA_ROOT: /app/data/catalog-api
+      CATALOG_API_TOKEN: ${CATALOG_API_TOKEN:-troque-este-token}
+      CATALOG_API_ALLOW_ORIGIN: ${CATALOG_API_ALLOW_ORIGIN:-*}
+      CATALOG_API_WEBHOOK_URL: ${CATALOG_API_WEBHOOK_URL:-}
+      CATALOG_API_WEBHOOK_TOKEN: ${CATALOG_API_WEBHOOK_TOKEN:-}
+    volumes:
+      - catalog-backend-data:/app/data
+      - catalog-backend-output:/app/output
+
+volumes:
+  catalog-backend-data:
+  catalog-backend-output:

@@ -6,12 +6,18 @@
     "dev": "node src/web/server.js",
     "build": "next build",
     "start": "node src/web/server.js",
+    "frontend:dev": "next dev",
+    "frontend:build": "next build",
+    "frontend:start": "next start",
+    "backend:dev": "node src/backend/server.js",
+    "backend:start": "node src/backend/server.js",
     "lint": "eslint .",
     "scrape": "node src/scrape.js",
     "probe": "node src/probe-site.js",
     "auto": "node src/auto-scrape.js",
     "compare": "node src/compare-prices.js",
-    "storefront:refresh": "node src/storefront-refresh.js"
+    "storefront:refresh": "node src/storefront-refresh.js",
+    "catalog:redetop": "node src/export-redetop-catalog.js"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
