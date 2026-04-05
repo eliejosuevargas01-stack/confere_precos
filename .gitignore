@@ -5,7 +5,7 @@ coverage/
 *.log
 .env*
 !.env.example
-!.env.backend.example
 data/
 output/
 profiles/
+repo_backup/

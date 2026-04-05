@@ -1,9 +1,0 @@
-node_modules
-npm-debug.log
-.git
-.gitignore
-output
-data
-profiles
-playwright-report
-test-results

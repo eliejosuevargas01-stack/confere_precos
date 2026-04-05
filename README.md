@@ -1,168 +1,83 @@
-# Confere Precos
+# Confere Precos Backend
 
-Proyecto con frontend y backend de scraping ahora desacoplados.
+Backend de scraping de catálogos para supermercados.
+
+Este repositório foi reduzido para backend-only. Ele:
+
+- recebe fontes novas por API
+- tenta aplicar a cidade enviada
+- descobre o catálogo completo do site
+- registra logs por job
+- salva artefatos locais
+- envia o resultado final para um webhook
 
 ## Scripts
 
-Frontend:
-
-```bash
-npm run frontend:dev
-npm run frontend:build
-npm run frontend:start
-```
-
-Backend de catálogo:
-
-```bash
-npm run backend:dev
-npm run backend:start
-```
-
-Deploy backend-only com Docker:
-
-```bash
-cp .env.backend.example .env.backend
-docker compose --env-file .env.backend -f docker-compose.backend.yml up -d --build
-```
-
-Modo legado acoplado:
-
 ```bash
 npm run dev
+npm run start
+npm run check
+npm run catalog:redetop -- --city gaspar
 ```
 
-## Backend API
+## Variáveis de ambiente
 
-Puerto por defecto:
+Use `.env.example` como base:
+
+```bash
+BACKEND_PORT_HOST=3100
+CATALOG_API_TOKEN=troque-este-token
+CATALOG_API_ALLOW_ORIGIN=*
+CATALOG_API_WEBHOOK_URL=https://seu-webhook.example.com/catalog
+CATALOG_API_WEBHOOK_TOKEN=
+```
+
+## API
+
+Base local:
 
 ```text
 http://localhost:3100
 ```
 
-Variables útiles:
+Endpoints principais:
 
-```bash
-BACKEND_PORT=3100
-CATALOG_API_TOKEN=troque-este-token
-CATALOG_API_DATA_ROOT=data/catalog-api
-CATALOG_API_ALLOW_ORIGIN=*
-CATALOG_API_WEBHOOK_URL=https://seu-webhook.example.com/catalog
-CATALOG_API_WEBHOOK_TOKEN=opcional
-```
-
-## Instalar solo el backend en una VPS
-
-Archivos de deploy:
-
-- `Dockerfile.backend`
-- `docker-compose.backend.yml`
-- `.env.backend.example`
-
-Pasos:
-
-1. Instalar Docker y Docker Compose en la VPS.
-2. Clonar el repositorio.
-3. Copiar el archivo de entorno:
-
-```bash
-cp .env.backend.example .env.backend
-```
-
-4. Ajustar al menos:
-
-- `CATALOG_API_TOKEN`
-- `CATALOG_API_WEBHOOK_URL`
-- `CATALOG_API_WEBHOOK_TOKEN` si tu webhook exige token
-- `BACKEND_PORT_HOST` si no quieres exponer `3100`
-
-5. Subir el backend:
-
-```bash
-docker compose --env-file .env.backend -f docker-compose.backend.yml up -d --build
-```
-
-6. Validar:
-
-```bash
-curl http://localhost:3100/v1/health
-docker compose --env-file .env.backend -f docker-compose.backend.yml logs -f
-```
-
-El backend queda en modo worker:
-
-- recibe URLs nuevas por API
-- intenta posicionarse en la ciudad enviada
-- descarga el catálogo
-- escribe logs locales
-- envía el resultado al webhook configurado
-
-## Endpoints principales
-
-Health:
-
-```bash
-GET /v1/health
-```
-
-Listar fuentes:
-
-```bash
-GET /v1/sources
-```
-
-Crear fuente nueva por API:
-
-```bash
+```text
+GET  /v1/health
+GET  /v1/sources
+GET  /v1/sources/:sourceId
 POST /v1/sources
-Authorization: Bearer <TOKEN>
-Content-Type: application/json
+PATCH /v1/sources/:sourceId
+DELETE /v1/sources/:sourceId
+POST /v1/sources/:sourceId/run
+POST /v1/catalog/run
+GET  /v1/jobs
+GET  /v1/jobs/:jobId
+GET  /v1/jobs/:jobId/logs
+GET  /v1/jobs/:jobId/logs/stream
+GET  /v1/sources/:sourceId/jobs
+GET  /v1/sources/:sourceId/catalog/latest
 ```
 
-Body ejemplo:
+## Body de exemplo
+
+Criar fonte:
 
 ```json
 {
-  "label": "Rede Top Gaspar",
-  "url": "https://www.redetoponline.com.br",
+  "label": "SuperKoch Gaspar",
+  "url": "https://www.superkoch.com.br",
   "city": "Gaspar",
-  "adapterHint": "redetop-full",
-  "scheduleMinutes": 180,
-  "maxSections": 10,
-  "maxPagesPerSection": 8,
+  "adapterHint": "auto",
+  "scheduleMinutes": 120,
+  "maxSections": 6,
+  "maxPagesPerSection": 4,
   "maxItemsPerPage": 250,
   "enabled": true
 }
 ```
 
-El campo `city` ahora se usa de forma activa:
-
-- el backend intenta encontrar el selector de ciudad/loja/unidade del sitio
-- si el sitio cambia por cookie, mantiene esa sesion para el scraping
-- si el sitio cambia por URL, el scraping continua desde la URL resuelta de esa ciudad
-- en la salida quedan `requestedCity`, `effectiveCity`, `storeLabel`, `cityCoverage` y `cityEligible`
-
-Actualizar fuente:
-
-```bash
-PATCH /v1/sources/:sourceId
-```
-
-Eliminar fuente:
-
-```bash
-DELETE /v1/sources/:sourceId
-```
-
-Disparar scraping de una fuente:
-
-```bash
-POST /v1/sources/:sourceId/run
-Authorization: Bearer <TOKEN>
-Content-Type: application/json
-```
-
-Body:
+Rodar job:
 
 ```json
 {
@@ -171,95 +86,104 @@ Body:
 }
 ```
 
-Run ad-hoc sin guardar fuente:
+## Cidade por API
+
+O campo `city` é usado de forma ativa.
+
+O backend tenta:
+
+- encontrar seletor de cidade, loja, unidade ou retirada
+- aplicar a cidade via clique, modal, select, cookie ou URL
+- continuar o scraping já no contexto da cidade resolvida
+
+Os resultados incluem:
+
+- `requestedCity`
+- `effectiveCity`
+- `storeLabel`
+- `cityCoverage`
+- `cityEligible`
+- `contextUrl`
+
+## Logs
+
+Cada job salva logs `ndjson` e expõe leitura incremental:
 
 ```bash
-POST /v1/catalog/run
-Authorization: Bearer <TOKEN>
-Content-Type: application/json
+GET /v1/jobs/:jobId/logs?after=0&limit=50
 ```
 
-Consultar jobs:
+Os logs mostram:
+
+- início do job
+- estratégia de cidade tentada
+- se a cidade foi aplicada ou não
+- descoberta de raiz do catálogo
+- seções/departamentos encontrados
+- quantidade de produtos por página
+- sucesso ou falha do webhook
+
+## Webhook
+
+Quando um job termina, o backend envia um POST para `CATALOG_API_WEBHOOK_URL`.
+
+O payload inclui:
+
+- `event`
+- `jobId`
+- `sourceId`
+- `sourceUrl`
+- `status`
+- `catalogDetected`
+- `requestedCity`
+- `effectiveCity`
+- `storeLabel`
+- `cityCoverage`
+- `cityEligible`
+- `contextUrl`
+- `metrics`
+- `artifactUrls`
+
+## Deploy com Docker
+
+O repositório já está pronto para deploy backend-only.
+
+Subida local ou VPS:
 
 ```bash
-GET /v1/jobs
-GET /v1/jobs/:jobId
-GET /v1/jobs/:jobId/logs
-GET /v1/jobs/:jobId/logs/stream
-GET /v1/sources/:sourceId/jobs
+cp .env.example .env
+docker compose --env-file .env -f docker-compose.selfhosted.yml up -d --build
 ```
 
-Último catálogo de una fuente:
+Validação:
 
 ```bash
-GET /v1/sources/:sourceId/catalog/latest
+curl http://localhost:3100/v1/health
+docker compose --env-file .env -f docker-compose.selfhosted.yml logs -f
 ```
 
-Artefactos servidos por HTTP:
+## Coolify
 
-```text
-/artifacts/backend/...
-```
+Configuração recomendada:
 
-Los jobs ahora incluyen `artifactUrls.logs` con el archivo `ndjson` de logs del scraping.
+- `Build Pack`: Dockerfile
+- `Dockerfile Location`: `./Dockerfile`
+- `Port`: `3100`
 
-## Ejemplo n8n
+Volumes persistentes:
 
-1. `HTTP Request` para crear o actualizar la fuente.
-2. `HTTP Request` a `POST /v1/sources/:sourceId/run` con `wait=false`.
-3. Guardar el `job.id`.
-4. Hacer polling a `GET /v1/jobs/:jobId/logs` para ver el descubrimiento en curso.
-5. Hacer polling a `GET /v1/jobs/:jobId`.
-6. Cuando el estado sea `completed`, usar `artifactUrls.csv` o `artifactUrls.json`.
-7. Si `CATALOG_API_WEBHOOK_URL` está configurado, el backend también enviará el resultado final automáticamente.
+- `/app/data`
+- `/app/output`
 
-Ejemplo de lectura incremental de logs:
+Health check:
 
-```bash
-GET /v1/jobs/:jobId/logs?after=10&limit=50
-```
+- `/v1/health`
 
-Los logs informan, entre otras cosas:
-
-- si la URL fue aceptada y el job inició
-- qué estrategia de ciudad se intentó y si la ciudad quedó aplicada
-- si el sistema detectó catálogo o no
-- qué raíz, departamentos o secciones eligió
-- cuántos productos encontró por página
-- si la descarga terminó bien o falló
-- si el webhook fue notificado correctamente
-
-## Scraping de catálogo completo
-
-El backend nuevo intenta encontrar el catálogo detallado y no quedarse solo con promociones de home.
-
-Estrategia:
-
-- intenta posicionar la sesion en la ciudad enviada por API
-- combina handlers específicos por sitio con heurísticas genéricas de ciudad
-- detecta si existe un adapter específico por sitio
-- intenta descubrir páginas de catálogo, categorías o departamentos
-- recorre secciones y paginación
-- guarda el catálogo completo en disco
-- expone `JSON`, `CSV` y resumen por API
-- escribe logs de descubrimiento por job
-- puede notificar un webhook al completar o fallar
-
-Adapter específico ya validado:
-
-- `redetoponline.com.br`
-
-Salida persistida:
-
-```text
-data/catalog-api/catalogs/<sourceId>/<timestamp>/
-```
-
-## VPS
-
-Playwright corre en modo headless. No necesita entorno gráfico, pero sí un sistema operativo Linux o un contenedor con las dependencias del navegador.
-
-Archivos disponibles:
+## Estrutura principal
 
 - [Dockerfile](/home/eliezer/Escritorio/scrapping_supermercados/Dockerfile)
 - [docker-compose.selfhosted.yml](/home/eliezer/Escritorio/scrapping_supermercados/docker-compose.selfhosted.yml)
+- [src/backend/server.js](/home/eliezer/Escritorio/scrapping_supermercados/src/backend/server.js)
+- [src/lib/catalog-backend-service.js](/home/eliezer/Escritorio/scrapping_supermercados/src/lib/catalog-backend-service.js)
+- [src/lib/intelligent-catalog-scraper.js](/home/eliezer/Escritorio/scrapping_supermercados/src/lib/intelligent-catalog-scraper.js)
+- [src/lib/city-context-discovery.js](/home/eliezer/Escritorio/scrapping_supermercados/src/lib/city-context-discovery.js)
