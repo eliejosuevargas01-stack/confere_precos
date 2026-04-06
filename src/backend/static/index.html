@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Console de Catalogo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6fb;
+        --panel: #ffffff;
+        --panel-muted: #eef2fb;
+        --text: #162033;
+        --text-soft: #5d6b82;
+        --accent: #173f8a;
+        --accent-2: #0d7a5f;
+        --warn: #b45309;
+        --danger: #b42318;
+        --border: #d7dfec;
+        --shadow: 0 18px 40px rgba(19, 36, 68, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 38%, #eef2f8 100%);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 28px 20px 40px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero-card {
+        padding: 24px;
+      }
+
+      .hero h1 {
+        margin: 0 0 8px;
+        font-size: 34px;
+        line-height: 1.05;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--text-soft);
+        max-width: 64ch;
+      }
+
+      .pill-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+
+      .pill {
+        border-radius: 999px;
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+        color: var(--text-soft);
+        font-size: 13px;
+        padding: 8px 12px;
+      }
+
+      .status-box {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .status-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .status-label {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+      }
+
+      .status-kpi {
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+      }
+
+      .status-kpi-value {
+        margin-top: 6px;
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--accent);
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-weight: 700;
+        background: #edf2ff;
+        color: var(--accent);
+      }
+
+      .status-badge.running {
+        background: #fff4dd;
+        color: var(--warn);
+      }
+
+      .status-badge.completed {
+        background: #e8f8f1;
+        color: var(--accent-2);
+      }
+
+      .status-badge.failed {
+        background: #fdeceb;
+        color: var(--danger);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 18px;
+      }
+
+      .section {
+        padding: 20px;
+      }
+
+      .section h2 {
+        margin: 0 0 14px;
+        font-size: 18px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .field-grid .full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--text-soft);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 12px;
+        padding: 12px 13px;
+        color: var(--text);
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 16px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .secondary {
+        background: var(--panel-muted);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .mono {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        background: #0d1422;
+        color: #d6e1ff;
+        border-radius: 16px;
+        padding: 14px;
+        overflow: auto;
+        min-height: 180px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .logs {
+        min-height: 420px;
+        max-height: 460px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .log-line {
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #111b2d;
+        margin-bottom: 10px;
+        border: 1px solid rgba(145, 171, 216, 0.16);
+      }
+
+      .log-meta {
+        color: #9ab0d4;
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+
+      .log-message {
+        color: #edf4ff;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .log-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .log-tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: rgba(144, 170, 216, 0.12);
+        border: 1px solid rgba(144, 170, 216, 0.22);
+        color: #cfe0ff;
+        padding: 5px 9px;
+        font-size: 11px;
+      }
+
+      .log-line details {
+        margin-top: 10px;
+      }
+
+      .log-line summary {
+        cursor: pointer;
+        color: #9ab0d4;
+        font-size: 12px;
+      }
+
+      .log-line details pre {
+        margin-top: 8px;
+      }
+
+      .artifact-list,
+      .job-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .job-list {
+        max-height: 460px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .ops-grid {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr 1.1fr;
+        gap: 18px;
+      }
+
+      .ops-column {
+        min-width: 0;
+      }
+
+      .worker-list,
+      .page-list {
+        display: grid;
+        gap: 10px;
+        max-height: 420px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .artifact-item,
+      .job-item {
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 14px;
+      }
+
+      .worker-item,
+      .page-item {
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px 14px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .worker-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .worker-name,
+      .page-url {
+        font-weight: 700;
+        line-height: 1.35;
+        word-break: break-word;
+      }
+
+      .worker-status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-soft);
+      }
+
+      .worker-status.busy {
+        background: #fff4dd;
+        color: var(--warn);
+        border-color: rgba(180, 83, 9, 0.2);
+      }
+
+      .worker-status.idle {
+        background: #edf2ff;
+        color: var(--accent);
+        border-color: rgba(23, 63, 138, 0.18);
+      }
+
+      .worker-status.done {
+        background: #e8f8f1;
+        color: var(--accent-2);
+        border-color: rgba(13, 122, 95, 0.18);
+      }
+
+      .page-status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #fff;
+        border: 1px solid var(--border);
+        color: var(--text-soft);
+      }
+
+      .page-status.products {
+        color: var(--accent-2);
+      }
+
+      .page-status.no-products {
+        color: var(--warn);
+      }
+
+      .page-status.duplicate {
+        color: var(--accent);
+      }
+
+      .page-status.failed {
+        color: var(--danger);
+      }
+
+      .page-subtext {
+        color: var(--text-soft);
+        font-size: 13px;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+
+      .artifact-item a,
+      .job-item button {
+        color: var(--accent);
+      }
+
+      .job-item button {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .muted {
+        color: var(--text-soft);
+      }
+
+      .empty {
+        padding: 16px;
+        border-radius: 14px;
+        background: var(--panel-muted);
+        border: 1px dashed var(--border);
+        color: var(--text-soft);
+      }
+
+      .product-feed {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 12px;
+        max-height: 68vh;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .product-item {
+        background: var(--panel-muted);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .product-name {
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .product-price-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .product-price {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--accent);
+      }
+
+      .product-price-old {
+        color: var(--text-soft);
+        text-decoration: line-through;
+        font-size: 13px;
+      }
+
+      .product-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .product-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-soft);
+        font-size: 12px;
+      }
+
+      .product-link {
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      @media (max-width: 1100px) {
+        .hero,
+        .layout,
+        .split,
+        .ops-grid,
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="card hero-card">
+          <h1>Console local de scraping</h1>
+          <p>
+            Esta página simula uma chamada externa como a do n8n. Ela dispara um job ad hoc no backend,
+            acompanha o status em tempo real e consome os logs incrementais até o fim da execução.
+          </p>
+          <div class="pill-row">
+            <span class="pill">POST /v1/catalog/run</span>
+            <span class="pill">POST /v1/catalog/run-batch</span>
+            <span class="pill">GET /v1/jobs/:jobId</span>
+            <span class="pill">GET /v1/batches/:batchId</span>
+            <span class="pill">GET /v1/jobs/:jobId/logs</span>
+          </div>
+        </div>
+        <div class="card status-box">
+          <div class="status-grid">
+            <div>
+              <div class="status-label">Status atual</div>
+              <div id="statusBadge" class="status-badge">Ocioso</div>
+            </div>
+            <div class="status-kpi">
+              <div class="status-label">Produtos encontrados</div>
+              <div id="productCountValue" class="status-kpi-value">0</div>
+              <div id="productCountHint" class="muted">Nenhum produto confirmado ainda.</div>
+            </div>
+            <div>
+              <div class="status-label">Job atual</div>
+              <div id="jobIdText" class="muted">Nenhum job iniciado.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="card section">
+          <h2>Disparar execução</h2>
+          <form id="runForm">
+            <div class="field-grid">
+              <label class="full">
+                API base URL
+                <input id="apiBase" name="apiBase" type="url" />
+              </label>
+
+              <label class="full">
+                Token Bearer
+                <input id="apiToken" name="apiToken" type="text" placeholder="Opcional" />
+              </label>
+
+              <label class="full">
+                Label
+                <input id="label" name="label" type="text" value="SuperKoch Gaspar" />
+              </label>
+
+              <label class="full">
+                URL
+                <input id="url" name="url" type="url" value="https://www.superkoch.com.br" />
+              </label>
+
+              <label class="full">
+                URLs em fila
+                <textarea
+                  id="queueUrls"
+                  name="queueUrls"
+                  placeholder="Uma URL por linha ou use o formato Label | https://site.com.br"
+                ></textarea>
+              </label>
+
+              <label>
+                Cidade
+                <input id="city" name="city" type="text" value="Gaspar" />
+              </label>
+
+              <label>
+                Adapter
+                <select id="adapterHint" name="adapterHint">
+                  <option value="auto" selected>auto</option>
+                  <option value="redetop-full">redetop-full</option>
+                </select>
+              </label>
+
+              <label>
+                Máx. seções
+                <input id="maxSections" name="maxSections" type="number" min="1" value="6" />
+              </label>
+
+              <label>
+                Máx. páginas/seção
+                <input
+                  id="maxPagesPerSection"
+                  name="maxPagesPerSection"
+                  type="number"
+                  min="1"
+                  value="4"
+                />
+              </label>
+
+              <label>
+                Máx. itens/página
+                <input
+                  id="maxItemsPerPage"
+                  name="maxItemsPerPage"
+                  type="number"
+                  min="1"
+                  value="250"
+                />
+              </label>
+
+              <label>
+                Workers
+                <input id="workerCount" name="workerCount" type="number" min="1" max="12" value="3" />
+              </label>
+
+              <label>
+                Headless
+                <select id="headless" name="headless">
+                  <option value="true" selected>true</option>
+                  <option value="false">false</option>
+                </select>
+              </label>
+
+              <label class="full">
+                Motivo
+                <input id="reason" name="reason" type="text" value="console" />
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="primary" type="submit" id="runButton">Rodar agora</button>
+              <button class="secondary" type="button" id="loadJobsButton">Carregar jobs recentes</button>
+              <button class="secondary" type="button" id="stopPollingButton">Parar polling</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="split">
+          <div class="card section">
+            <h2>Payload enviado</h2>
+            <pre id="payloadPreview" class="mono"></pre>
+          </div>
+          <div class="card section">
+            <h2>Resposta mais recente</h2>
+            <pre id="responsePreview" class="mono"></pre>
+          </div>
+          <div class="card section">
+            <h2>Job atual</h2>
+            <pre id="jobPreview" class="mono"></pre>
+          </div>
+          <div class="card section">
+            <h2>Lote atual</h2>
+            <pre id="batchPreview" class="mono"></pre>
+          </div>
+          <div class="card section">
+            <h2>Artefatos</h2>
+            <div id="artifactList" class="artifact-list">
+              <div class="empty">Nenhum artefato disponível ainda.</div>
+            </div>
+          </div>
+          <div class="card section">
+            <h2>Fila do lote</h2>
+            <div id="batchQueueList" class="artifact-list">
+              <div class="empty">Nenhum lote em execução.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout" style="margin-top: 18px;">
+        <div class="card section">
+          <h2>Jobs recentes</h2>
+          <div id="jobList" class="job-list">
+            <div class="empty">Carregue os jobs recentes para navegar entre execuções.</div>
+          </div>
+        </div>
+        <div class="card section">
+          <h2>Logs ao vivo</h2>
+          <div id="logsPanel" class="logs">Aguardando execução...</div>
+        </div>
+      </section>
+
+      <section class="card section" style="margin-top: 18px;">
+        <div class="section-header">
+          <h2 style="margin: 0;">Painel operacional</h2>
+          <div id="workerSummary" class="muted">0 workers monitorados</div>
+        </div>
+        <div class="ops-grid">
+          <div class="ops-column">
+            <div class="section-header">
+              <h2 style="margin: 0;">Workers</h2>
+              <div id="workerBusyCount" class="muted">0 ocupados</div>
+            </div>
+            <div id="workerList" class="worker-list">
+              <div class="empty">Os workers aparecerão quando a fila da seção for criada.</div>
+            </div>
+          </div>
+          <div class="ops-column">
+            <div class="section-header">
+              <h2 style="margin: 0;">Páginas encontradas</h2>
+              <div id="discoveredPagesCount" class="muted">0 páginas</div>
+            </div>
+            <div id="discoveredPagesList" class="page-list">
+              <div class="empty">Nenhuma página descoberta ainda.</div>
+            </div>
+          </div>
+          <div class="ops-column">
+            <div class="section-header">
+              <h2 style="margin: 0;">Páginas analisadas</h2>
+              <div id="analyzedPagesCount" class="muted">0 páginas</div>
+            </div>
+            <div id="analyzedPagesList" class="page-list">
+              <div class="empty">Nenhuma página analisada ainda.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card section" style="margin-top: 18px;">
+        <div class="section-header">
+          <h2 style="margin: 0;">Produtos encontrados ao vivo</h2>
+          <div id="productFeedCount" class="muted">0 produtos visíveis</div>
+        </div>
+        <div id="productFeed" class="product-feed">
+          <div class="empty">Nenhum produto listado ainda.</div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        currentBatchId: null,
+        currentJobId: null,
+        currentObservedJobId: null,
+        logAfter: 0,
+        logTimer: null,
+        statusTimer: null,
+        batchTimer: null,
+        maxVisibleLogs: 140,
+      };
+
+      const els = {
+        runForm: document.getElementById("runForm"),
+        apiBase: document.getElementById("apiBase"),
+        apiToken: document.getElementById("apiToken"),
+        label: document.getElementById("label"),
+        url: document.getElementById("url"),
+        queueUrls: document.getElementById("queueUrls"),
+        city: document.getElementById("city"),
+        adapterHint: document.getElementById("adapterHint"),
+        maxSections: document.getElementById("maxSections"),
+        maxPagesPerSection: document.getElementById("maxPagesPerSection"),
+        maxItemsPerPage: document.getElementById("maxItemsPerPage"),
+        workerCount: document.getElementById("workerCount"),
+        headless: document.getElementById("headless"),
+        reason: document.getElementById("reason"),
+        runButton: document.getElementById("runButton"),
+        loadJobsButton: document.getElementById("loadJobsButton"),
+        stopPollingButton: document.getElementById("stopPollingButton"),
+        statusBadge: document.getElementById("statusBadge"),
+        productCountValue: document.getElementById("productCountValue"),
+        productCountHint: document.getElementById("productCountHint"),
+        jobIdText: document.getElementById("jobIdText"),
+        workerSummary: document.getElementById("workerSummary"),
+        workerBusyCount: document.getElementById("workerBusyCount"),
+        workerList: document.getElementById("workerList"),
+        discoveredPagesCount: document.getElementById("discoveredPagesCount"),
+        discoveredPagesList: document.getElementById("discoveredPagesList"),
+        analyzedPagesCount: document.getElementById("analyzedPagesCount"),
+        analyzedPagesList: document.getElementById("analyzedPagesList"),
+        productFeedCount: document.getElementById("productFeedCount"),
+        productFeed: document.getElementById("productFeed"),
+        payloadPreview: document.getElementById("payloadPreview"),
+        responsePreview: document.getElementById("responsePreview"),
+        jobPreview: document.getElementById("jobPreview"),
+        batchPreview: document.getElementById("batchPreview"),
+        artifactList: document.getElementById("artifactList"),
+        batchQueueList: document.getElementById("batchQueueList"),
+        jobList: document.getElementById("jobList"),
+        logsPanel: document.getElementById("logsPanel"),
+      };
+
+      init();
+
+      function init() {
+        els.apiBase.value = window.location.origin;
+        resetProductCounter();
+        resetOperationalState();
+        resetProductFeed();
+        resetBatchState();
+        renderPayloadPreview();
+        bindEvents();
+        loadRecentJobs().catch(renderError);
+      }
+
+      function bindEvents() {
+        [
+          "input",
+          "change",
+        ].forEach((eventName) => {
+          els.runForm.addEventListener(eventName, renderPayloadPreview);
+        });
+
+        els.runForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          await runCurrentRequest();
+        });
+
+        els.loadJobsButton.addEventListener("click", () => {
+          loadRecentJobs().catch(renderError);
+        });
+
+        els.stopPollingButton.addEventListener("click", () => {
+          stopPolling();
+          setStatus("Ocioso", "");
+        });
+      }
+
+      function buildSinglePayload() {
+        return {
+          label: els.label.value.trim(),
+          url: els.url.value.trim(),
+          city: normalizeEmpty(els.city.value),
+          adapterHint: els.adapterHint.value,
+          maxSections: Number.parseInt(els.maxSections.value, 10),
+          maxPagesPerSection: Number.parseInt(els.maxPagesPerSection.value, 10),
+          maxItemsPerPage: Number.parseInt(els.maxItemsPerPage.value, 10),
+          workerCount: Number.parseInt(els.workerCount.value, 10),
+          headless: els.headless.value === "true",
+          wait: false,
+          reason: normalizeEmpty(els.reason.value) || "console",
+        };
+      }
+
+      function buildBatchPayload() {
+        return {
+          label: normalizeEmpty(els.label.value) || "Lote de catálogos",
+          city: normalizeEmpty(els.city.value),
+          adapterHint: els.adapterHint.value,
+          maxSections: Number.parseInt(els.maxSections.value, 10),
+          maxPagesPerSection: Number.parseInt(els.maxPagesPerSection.value, 10),
+          maxItemsPerPage: Number.parseInt(els.maxItemsPerPage.value, 10),
+          workerCount: Number.parseInt(els.workerCount.value, 10),
+          headless: els.headless.value === "true",
+          wait: false,
+          reason: normalizeEmpty(els.reason.value) || "console",
+          items: parseQueueItems(),
+        };
+      }
+
+      function buildActivePayload() {
+        const queueItems = parseQueueItems();
+        return queueItems.length > 1 ? buildBatchPayload() : buildSinglePayload();
+      }
+
+      function parseQueueItems() {
+        const lines = String(els.queueUrls.value || "")
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        if (!lines.length) {
+          return els.url.value.trim()
+            ? [
+                {
+                  label: normalizeEmpty(els.label.value),
+                  url: els.url.value.trim(),
+                },
+              ]
+            : [];
+        }
+
+        return lines.map((line) => {
+          const separatorIndex = line.indexOf("|");
+
+          if (separatorIndex === -1) {
+            return {
+              url: line.trim(),
+            };
+          }
+
+          return {
+            label: normalizeEmpty(line.slice(0, separatorIndex)),
+            url: line.slice(separatorIndex + 1).trim(),
+          };
+        });
+      }
+
+      function normalizeEmpty(value) {
+        const trimmed = String(value || "").trim();
+        return trimmed || null;
+      }
+
+      function renderPayloadPreview() {
+        els.payloadPreview.textContent = JSON.stringify(buildActivePayload(), null, 2);
+      }
+
+      function authHeaders() {
+        const headers = { "Content-Type": "application/json" };
+        const token = normalizeEmpty(els.apiToken.value);
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        return headers;
+      }
+
+      function apiUrl(path) {
+        const base = els.apiBase.value.trim().replace(/\/+$/, "");
+        return `${base}${path}`;
+      }
+
+      async function runCurrentRequest() {
+        const queueItems = parseQueueItems();
+
+        if (!queueItems.length) {
+          renderError(new Error("Informe pelo menos uma URL válida."));
+          return;
+        }
+
+        if (queueItems.length > 1) {
+          await runBatchJob();
+          return;
+        }
+
+        await runAdhocJob();
+      }
+
+      async function runAdhocJob() {
+        stopPolling();
+        clearLogs();
+        resetBatchState();
+        els.runButton.disabled = true;
+
+        try {
+          const response = await fetch(apiUrl("/v1/catalog/run"), {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify(buildSinglePayload()),
+          });
+
+          const data = await response.json();
+          els.responsePreview.textContent = JSON.stringify(data, null, 2);
+
+          if (!response.ok) {
+            throw new Error(data.error || `Falha HTTP ${response.status}`);
+          }
+
+          if (!data.job?.id) {
+            throw new Error("A resposta não retornou job.id.");
+          }
+
+          openJob(data.job.id, data.job);
+          await loadRecentJobs();
+        } catch (error) {
+          renderError(error);
+        } finally {
+          els.runButton.disabled = false;
+        }
+      }
+
+      async function runBatchJob() {
+        stopPolling();
+        clearLogs();
+        clearArtifacts();
+        resetBatchState();
+        resetProductCounter();
+        resetOperationalState();
+        resetProductFeed();
+        els.runButton.disabled = true;
+
+        try {
+          const response = await fetch(apiUrl("/v1/catalog/run-batch"), {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify(buildBatchPayload()),
+          });
+
+          const data = await response.json();
+          els.responsePreview.textContent = JSON.stringify(data, null, 2);
+
+          if (!response.ok) {
+            throw new Error(data.error || `Falha HTTP ${response.status}`);
+          }
+
+          if (!data.batch?.id) {
+            throw new Error("A resposta não retornou batch.id.");
+          }
+
+          openBatch(data.batch.id, data.batch);
+          await loadRecentJobs();
+        } catch (error) {
+          renderError(error);
+        } finally {
+          els.runButton.disabled = false;
+        }
+      }
+
+      async function loadRecentJobs() {
+        const response = await fetch(apiUrl("/v1/jobs?limit=12"), {
+          headers: authHeaders(),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Falha HTTP ${response.status}`);
+        }
+
+        renderJobList(data.items || []);
+      }
+
+      function renderJobList(items) {
+        if (!items.length) {
+          els.jobList.innerHTML = '<div class="empty">Nenhum job encontrado ainda.</div>';
+          return;
+        }
+
+        els.jobList.innerHTML = items
+          .map((job) => {
+            return `
+              <div class="job-item">
+                <div><button type="button" data-job-id="${escapeHtml(job.id)}">${escapeHtml(job.sourceLabel || job.id)}</button></div>
+                <div class="muted">${escapeHtml(job.status || "desconhecido")} • ${escapeHtml(job.startedAt || "-")}</div>
+              </div>
+            `;
+          })
+          .join("");
+
+        for (const button of els.jobList.querySelectorAll("[data-job-id]")) {
+          button.addEventListener("click", () => {
+            openJob(button.getAttribute("data-job-id")).catch(renderError);
+          });
+        }
+      }
+
+      async function openJob(jobId, seedJob = null) {
+        state.currentBatchId = null;
+        state.currentJobId = jobId;
+        state.currentObservedJobId = jobId;
+        state.logAfter = 0;
+        resetProductCounter();
+        resetOperationalState();
+        resetProductFeed();
+        clearLogs();
+        resetBatchState();
+        els.jobIdText.textContent = jobId;
+        setStatus(seedJob?.status || "Carregando", seedJob?.status || "");
+
+        if (seedJob) {
+          renderJob(seedJob);
+        }
+
+        await pollJob();
+        await pollLogs();
+
+        state.statusTimer = window.setInterval(() => {
+          pollJob().catch(renderError);
+        }, 2000);
+
+        state.logTimer = window.setInterval(() => {
+          pollLogs().catch(renderError);
+        }, 1500);
+      }
+
+      async function openBatch(batchId, seedBatch = null) {
+        state.currentBatchId = batchId;
+        state.currentJobId = null;
+        state.currentObservedJobId = null;
+        state.logAfter = 0;
+        resetProductCounter();
+        resetOperationalState();
+        resetProductFeed();
+        clearLogs();
+        els.jobIdText.textContent = batchId;
+        els.jobPreview.textContent = JSON.stringify({ note: "Aguardando primeiro job do lote." }, null, 2);
+        setStatus(seedBatch?.status || "Carregando", seedBatch?.status || "");
+
+        if (seedBatch) {
+          renderBatch(seedBatch);
+        }
+
+        await pollBatch();
+
+        state.batchTimer = window.setInterval(() => {
+          pollBatch().catch(renderError);
+        }, 2000);
+
+        state.logTimer = window.setInterval(() => {
+          pollLogs().catch(renderError);
+        }, 1500);
+      }
+
+      function stopPolling() {
+        if (state.statusTimer) {
+          window.clearInterval(state.statusTimer);
+          state.statusTimer = null;
+        }
+
+        if (state.logTimer) {
+          window.clearInterval(state.logTimer);
+          state.logTimer = null;
+        }
+
+        if (state.batchTimer) {
+          window.clearInterval(state.batchTimer);
+          state.batchTimer = null;
+        }
+      }
+
+      async function pollJob() {
+        if (!state.currentJobId) {
+          return;
+        }
+
+        const response = await fetch(apiUrl(`/v1/jobs/${encodeURIComponent(state.currentJobId)}`), {
+          headers: authHeaders(),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Falha HTTP ${response.status}`);
+        }
+
+        const job = data.item;
+        renderJob(job);
+        updateProductCounterFromJob(job);
+        if (!state.currentBatchId) {
+          setStatus(job.status || "desconhecido", job.status || "");
+        }
+
+        if ((job.status === "completed" || job.status === "failed") && !state.currentBatchId) {
+          stopPolling();
+          loadRecentJobs().catch(renderError);
+        }
+      }
+
+      async function pollBatch() {
+        if (!state.currentBatchId) {
+          return;
+        }
+
+        const response = await fetch(
+          apiUrl(`/v1/batches/${encodeURIComponent(state.currentBatchId)}`),
+          {
+            headers: authHeaders(),
+          },
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Falha HTTP ${response.status}`);
+        }
+
+        const batch = data.item;
+        renderBatch(batch);
+        setStatus(batch.status || "desconhecido", batch.status || "");
+
+        if (batch.currentJobId && batch.currentJobId !== state.currentObservedJobId) {
+          state.currentJobId = batch.currentJobId;
+          state.currentObservedJobId = batch.currentJobId;
+          state.logAfter = 0;
+          resetProductCounter();
+          resetOperationalState();
+          resetProductFeed();
+          clearLogs();
+          appendSyntheticLog(
+            `O lote avançou para o job ${batch.currentJobId}. Vou acompanhar os logs deste site agora.`,
+          );
+          await pollJob();
+        }
+
+        if (batch.status === "completed" || batch.status === "failed") {
+          stopPolling();
+          state.currentBatchId = batch.id;
+          state.currentJobId = null;
+          state.currentObservedJobId = null;
+        }
+      }
+
+      async function pollLogs() {
+        if (!state.currentJobId) {
+          return;
+        }
+
+        const response = await fetch(
+          apiUrl(`/v1/jobs/${encodeURIComponent(state.currentJobId)}/logs?after=${state.logAfter}&limit=200`),
+          {
+            headers: authHeaders(),
+          },
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Falha HTTP ${response.status}`);
+        }
+
+        state.logAfter = data.nextAfter || state.logAfter;
+
+        if (!Array.isArray(data.items) || data.items.length === 0) {
+          return;
+        }
+
+        for (const item of data.items) {
+          appendLog(item);
+        }
+      }
+
+      function renderJob(job) {
+        els.jobPreview.textContent = JSON.stringify(job, null, 2);
+        if (!state.currentBatchId) {
+          renderArtifacts(job.artifactUrls || {});
+        }
+        els.jobIdText.textContent = job.id || "Sem job";
+      }
+
+      function renderBatch(batch) {
+        els.batchPreview.textContent = JSON.stringify(batch, null, 2);
+        renderBatchQueue(batch.items || []);
+
+        if (batch.artifactUrls && Object.values(batch.artifactUrls).some(Boolean)) {
+          renderArtifacts(batch.artifactUrls);
+        }
+
+        const currentLabel =
+          typeof batch.currentItemIndex === "number" && batch.items?.[batch.currentItemIndex]
+            ? batch.items[batch.currentItemIndex].label || batch.items[batch.currentItemIndex].url
+            : "Nenhum item ativo";
+        els.jobIdText.textContent = `${batch.id} • ${currentLabel}`;
+      }
+
+      function renderBatchQueue(items) {
+        if (!items.length) {
+          els.batchQueueList.innerHTML = '<div class="empty">Nenhum lote em execução.</div>';
+          return;
+        }
+
+        els.batchQueueList.innerHTML = items
+          .map((item) => {
+            const href = item.artifactUrls?.csv ? absoluteArtifactUrl(item.artifactUrls.csv) : null;
+            return `
+              <div class="artifact-item">
+                <div><strong>${escapeHtml(item.label || item.url || `Item ${item.index + 1}`)}</strong></div>
+                <div class="muted">${escapeHtml(item.status || "queued")} • ${escapeHtml(item.url || "-")}</div>
+                <div class="muted">${escapeHtml(item.jobId || "Sem job ainda")}</div>
+                ${href ? `<div><a href="${escapeAttribute(href)}" target="_blank" rel="noreferrer">Baixar CSV deste item</a></div>` : ""}
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderArtifacts(artifactUrls) {
+        const entries = Object.entries(artifactUrls || {}).filter(([, value]) => Boolean(value));
+
+        if (!entries.length) {
+          els.artifactList.innerHTML = '<div class="empty">Nenhum artefato disponível ainda.</div>';
+          return;
+        }
+
+        els.artifactList.innerHTML = entries
+          .map(([key, value]) => {
+            const href = absoluteArtifactUrl(String(value));
+            return `
+              <div class="artifact-item">
+                <div><strong>${escapeHtml(key)}</strong></div>
+                <div><a href="${escapeAttribute(href)}" target="_blank" rel="noreferrer">${escapeHtml(href)}</a></div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function absoluteArtifactUrl(value) {
+        if (/^https?:\/\//i.test(value)) {
+          return value;
+        }
+
+        const base = els.apiBase.value.trim().replace(/\/+$/, "");
+        return `${base}${value.startsWith("/") ? value : `/${value}`}`;
+      }
+
+      function clearArtifacts() {
+        els.artifactList.innerHTML = '<div class="empty">Nenhum artefato disponível ainda.</div>';
+      }
+
+      function resetBatchState() {
+        state.currentBatchId = null;
+        state.currentObservedJobId = null;
+        els.batchPreview.textContent = JSON.stringify(
+          { note: "Nenhum lote acompanhado neste momento." },
+          null,
+          2,
+        );
+        els.batchQueueList.innerHTML = '<div class="empty">Nenhum lote em execução.</div>';
+      }
+
+      function clearLogs() {
+        els.logsPanel.innerHTML = '<div class="empty">Aguardando execução...</div>';
+      }
+
+      function appendSyntheticLog(message) {
+        appendLog({
+          at: new Date().toISOString(),
+          level: "info",
+          scope: "backend",
+          message,
+          context: null,
+        });
+      }
+
+      function appendLog(entry) {
+        updateProductCounterFromLog(entry);
+        ingestOperationalLog(entry);
+        ingestProductsFromLog(entry);
+
+        if (els.logsPanel.querySelector(".empty")) {
+          els.logsPanel.innerHTML = "";
+        }
+
+        const block = document.createElement("div");
+        block.className = "log-line";
+        const friendly = humanizeLogEntry(entry);
+        const tags = buildLogTags(entry);
+        block.innerHTML = `
+          <div class="log-meta">${escapeHtml(formatTimestamp(entry.at))} • ${escapeHtml(describeLevel(entry.level))} • ${escapeHtml(describeScope(entry.scope))}</div>
+          <div class="log-message">${escapeHtml(friendly)}</div>
+          ${tags ? `<div class="log-tags">${tags}</div>` : ""}
+          ${entry.context ? `<details><summary>Ver detalhes técnicos</summary><pre class="mono" style="min-height:auto;">${escapeHtml(JSON.stringify(entry.context, null, 2))}</pre></details>` : ""}
+        `;
+
+        if (!els.logsPanel.querySelector(".log-line")) {
+          els.logsPanel.textContent = "";
+        }
+
+        els.logsPanel.appendChild(block);
+        trimLogPanel();
+        els.logsPanel.scrollTop = els.logsPanel.scrollHeight;
+      }
+
+      function resetProductCounter() {
+        state.productCounter = {
+          exactTotal: null,
+          sectionTotals: {},
+        };
+        renderProductCounter();
+      }
+
+      function resetOperationalState() {
+        state.operational = {
+          totalWorkers: 0,
+          workersById: {},
+          discoveredOrder: [],
+          discoveredByKey: {},
+          analyzedOrder: [],
+          analyzedByKey: {},
+        };
+        renderWorkers();
+        renderDiscoveredPages();
+        renderAnalyzedPages();
+      }
+
+      function resetProductFeed() {
+        state.productFeed = {
+          order: [],
+          itemsByKey: {},
+        };
+        renderProductFeed();
+      }
+
+      function updateProductCounterFromJob(job) {
+        const totalProducts = Number.isFinite(job?.metrics?.totalProducts) ? job.metrics.totalProducts : null;
+
+        if (totalProducts === null) {
+          return;
+        }
+
+        state.productCounter.exactTotal = totalProducts;
+        renderProductCounter();
+      }
+
+      function updateProductCounterFromLog(entry) {
+        const context = entry?.context || {};
+        const message = entry?.message || "";
+
+        if (
+          entry?.scope === "catalog-discovery" &&
+          message === "Secao concluida." &&
+          context.sectionId &&
+          Number.isFinite(context.totalProducts)
+        ) {
+          state.productCounter.sectionTotals[context.sectionId] = context.totalProducts;
+        }
+
+        if (
+          entry?.scope === "catalog-discovery" &&
+          /Catalogo generico concluido com produtos encontrados/i.test(message) &&
+          Number.isFinite(context.totalProducts)
+        ) {
+          state.productCounter.exactTotal = context.totalProducts;
+        }
+
+        renderProductCounter();
+      }
+
+      function renderProductCounter() {
+        const exactTotal = Number.isFinite(state.productCounter?.exactTotal)
+          ? state.productCounter.exactTotal
+          : null;
+        const sectionTotal = Object.values(state.productCounter?.sectionTotals || {}).reduce(
+          (sum, value) => sum + (Number.isFinite(value) ? value : 0),
+          0,
+        );
+        const displayValue = exactTotal ?? sectionTotal;
+
+        els.productCountValue.textContent = new Intl.NumberFormat("pt-BR").format(displayValue);
+
+        if (exactTotal !== null) {
+          els.productCountHint.textContent = "Total final confirmado.";
+          return;
+        }
+
+        if (sectionTotal > 0) {
+          els.productCountHint.textContent = "Soma das seções já concluídas.";
+          return;
+        }
+
+        els.productCountHint.textContent = "Nenhum produto confirmado ainda.";
+      }
+
+      function ingestOperationalLog(entry) {
+        const context = entry?.context || {};
+        const message = entry?.message || "";
+
+        if (Number.isFinite(context.workerCount)) {
+          ensureWorkerSlots(context.workerCount, context.sectionLabel || null);
+        }
+
+        if (message === "Iniciando descoberta inteligente de catalogo.") {
+          updateIdleWorkersNote("Aguardando descoberta inicial do catálogo");
+        }
+
+        if (message === "Iniciando descoberta da raiz do catalogo.") {
+          registerDiscoveredPages(context.initialCandidates, {
+            sectionLabel: "Descoberta inicial",
+            sourcePage: context.sourceUrl || null,
+            note: "candidatas à raiz do catálogo",
+          });
+          updateIdleWorkersNote("Aguardando escolha da raiz do catálogo");
+        }
+
+        if (message === "Candidato de catalogo inspecionado.") {
+          registerAnalyzedPage(context.inputUrl || context.finalUrl, {
+            finalUrl: context.finalUrl || null,
+            status:
+              Number.isFinite(context.productsFound) && context.productsFound > 0
+                ? "products"
+                : "no-products",
+            sectionLabel: "Descoberta inicial",
+            workerId: null,
+            productsFound: Number.isFinite(context.productsFound) ? context.productsFound : 0,
+            strategy: context.strategy || null,
+          });
+          registerDiscoveredPages(context.discoveredLinks, {
+            sectionLabel: "Descoberta inicial",
+            sourcePage: context.inputUrl || context.finalUrl || null,
+            note: "links descobertos nessa tentativa",
+          });
+        }
+
+        if (message === "Raiz do catalogo selecionada.") {
+          updateIdleWorkersNote("Raiz escolhida, aguardando montagem da fila");
+        }
+
+        if (message === "Fila de paginas da secao inicializada.") {
+          registerDiscoveredPages(context.pageUrls, {
+            sectionLabel: context.sectionLabel || null,
+            sourcePage: context.sectionUrl || null,
+            note: "fila inicial",
+          });
+        }
+
+        if (message === "Paginas da secao descobertas.") {
+          registerDiscoveredPages(context.pageUrls, {
+            sectionLabel: context.sectionLabel || null,
+            sourcePage: context.sectionUrl || null,
+            note: "descoberta inicial",
+          });
+        }
+
+        if (message === "Novas paginas relacionadas foram descobertas dentro da secao.") {
+          registerDiscoveredPages(context.discoveredLinks, {
+            sectionLabel: context.sectionLabel || null,
+            sourcePage: context.pageUrl || null,
+            workerId: context.workerId || null,
+            note: "descoberta relacionada",
+          });
+        }
+
+        if (message === "Worker da secao iniciado.") {
+          updateWorkerState(context.workerId, {
+            status: "idle",
+            sectionLabel: context.sectionLabel || null,
+            note: "Pronto para receber página",
+          });
+        }
+
+        if (message === "Worker assumiu pagina da fila.") {
+          updateWorkerState(context.workerId, {
+            status: "busy",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: context.pageUrl || null,
+            note: "Analisando página",
+          });
+        }
+
+        if (message === "Worker ocioso aguardando novas paginas.") {
+          updateWorkerState(context.workerId, {
+            status: "idle",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: "Aguardando novos links",
+          });
+        }
+
+        if (message === "Worker finalizou execucao da secao.") {
+          updateWorkerState(context.workerId, {
+            status: "done",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: "Seção concluída",
+          });
+        }
+
+        if (message === "Pagina da secao processada.") {
+          registerAnalyzedPage(context.pageUrl, {
+            finalUrl: context.finalUrl || null,
+            status: "products",
+            sectionLabel: context.sectionLabel || null,
+            workerId: context.workerId || null,
+            productsFound: context.productsFound || 0,
+            strategy: context.strategy || null,
+          });
+          updateWorkerState(context.workerId, {
+            status: "busy",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: `${context.productsFound || 0} produtos nesta página`,
+          });
+        }
+
+        if (message === "Pagina processada sem produtos validos.") {
+          registerAnalyzedPage(context.pageUrl, {
+            finalUrl: context.finalUrl || null,
+            status: "no-products",
+            sectionLabel: context.sectionLabel || null,
+            workerId: context.workerId || null,
+            productsFound: 0,
+            strategy: context.strategy || null,
+          });
+          updateWorkerState(context.workerId, {
+            status: "busy",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: "Página sem produtos válidos",
+          });
+        }
+
+        if (message === "Pagina da fila falhou ao abrir.") {
+          registerAnalyzedPage(context.pageUrl, {
+            finalUrl: context.finalUrl || null,
+            status: "failed",
+            sectionLabel: context.sectionLabel || null,
+            workerId: context.workerId || null,
+            productsFound: 0,
+            strategy: context.strategy || null,
+          });
+          updateWorkerState(context.workerId, {
+            status: "busy",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: "Falha ao abrir a página, seguindo a fila",
+          });
+        }
+
+        if (message === "Pagina ignorada por fingerprint duplicada.") {
+          registerAnalyzedPage(context.pageUrl, {
+            finalUrl: context.finalUrl || null,
+            status: "duplicate",
+            sectionLabel: context.sectionLabel || null,
+            workerId: context.workerId || null,
+            productsFound: 0,
+            strategy: context.strategy || null,
+          });
+          updateWorkerState(context.workerId, {
+            status: "busy",
+            sectionLabel: context.sectionLabel || null,
+            currentPage: null,
+            note: "Página repetida ignorada",
+          });
+        }
+      }
+
+      function ensureWorkerSlots(totalWorkers, sectionLabel) {
+        const count = Number.parseInt(totalWorkers, 10);
+
+        if (!Number.isFinite(count) || count <= 0) {
+          return;
+        }
+
+        state.operational.totalWorkers = Math.max(state.operational.totalWorkers, count);
+
+        for (let workerId = 1; workerId <= count; workerId += 1) {
+          if (!state.operational.workersById[workerId]) {
+            state.operational.workersById[workerId] = {
+              workerId,
+              status: "idle",
+              sectionLabel: sectionLabel || null,
+              currentPage: null,
+              note: "Aguardando trabalho",
+            };
+          }
+        }
+
+        renderWorkers();
+      }
+
+      function updateWorkerState(workerId, patch = {}) {
+        const normalizedId = Number.parseInt(workerId, 10);
+
+        if (!Number.isFinite(normalizedId) || normalizedId <= 0) {
+          return;
+        }
+
+        ensureWorkerSlots(normalizedId, patch.sectionLabel || null);
+        const current = state.operational.workersById[normalizedId] || {
+          workerId: normalizedId,
+          status: "idle",
+          sectionLabel: null,
+          currentPage: null,
+          note: "Aguardando trabalho",
+        };
+
+        state.operational.workersById[normalizedId] = {
+          ...current,
+          ...patch,
+          workerId: normalizedId,
+        };
+        renderWorkers();
+      }
+
+      function updateIdleWorkersNote(note) {
+        const workers = Object.values(state.operational?.workersById || {});
+
+        if (workers.length === 0) {
+          return;
+        }
+
+        let changed = false;
+
+        for (const worker of workers) {
+          if (worker.status === "busy" || worker.status === "done") {
+            continue;
+          }
+
+          if (worker.note !== note) {
+            state.operational.workersById[worker.workerId] = {
+              ...worker,
+              note,
+            };
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          renderWorkers();
+        }
+      }
+
+      function registerDiscoveredPages(urls, meta = {}) {
+        if (!Array.isArray(urls) || urls.length === 0) {
+          return;
+        }
+
+        let changed = false;
+
+        for (const rawUrl of urls) {
+          const url = normalizeComparableUrl(rawUrl);
+
+          if (!url) {
+            continue;
+          }
+
+          if (!state.operational.discoveredByKey[url]) {
+            state.operational.discoveredByKey[url] = {
+              url,
+              sectionLabel: meta.sectionLabel || null,
+              sourcePage: meta.sourcePage || null,
+              workerId: meta.workerId || null,
+              note: meta.note || null,
+              firstSeenAt: new Date().toISOString(),
+            };
+            state.operational.discoveredOrder.unshift(url);
+            changed = true;
+            continue;
+          }
+
+          state.operational.discoveredByKey[url] = {
+            ...state.operational.discoveredByKey[url],
+            sectionLabel: state.operational.discoveredByKey[url].sectionLabel || meta.sectionLabel || null,
+            sourcePage: state.operational.discoveredByKey[url].sourcePage || meta.sourcePage || null,
+            workerId: state.operational.discoveredByKey[url].workerId || meta.workerId || null,
+            note: state.operational.discoveredByKey[url].note || meta.note || null,
+          };
+        }
+
+        if (changed) {
+          renderDiscoveredPages();
+        }
+      }
+
+      function registerAnalyzedPage(pageUrl, meta = {}) {
+        const key = normalizeComparableUrl(pageUrl);
+
+        if (!key) {
+          return;
+        }
+
+        const current = state.operational.analyzedByKey[key];
+        const next = {
+          url: key,
+          finalUrl: meta.finalUrl || null,
+          status: meta.status || "products",
+          sectionLabel: meta.sectionLabel || null,
+          workerId: meta.workerId || null,
+          productsFound: Number.isFinite(meta.productsFound) ? meta.productsFound : 0,
+          strategy: meta.strategy || null,
+          firstSeenAt: current?.firstSeenAt || new Date().toISOString(),
+        };
+
+        state.operational.analyzedByKey[key] = current
+          ? {
+              ...current,
+              ...next,
+            }
+          : next;
+
+        if (!current) {
+          state.operational.analyzedOrder.unshift(key);
+        }
+
+        renderAnalyzedPages();
+      }
+
+      function renderWorkers() {
+        const workers = Object.values(state.operational?.workersById || {}).sort(
+          (left, right) => left.workerId - right.workerId,
+        );
+        const busyCount = workers.filter((worker) => worker.status === "busy").length;
+
+        els.workerSummary.textContent = `${new Intl.NumberFormat("pt-BR").format(workers.length)} worker${workers.length === 1 ? "" : "s"} monitorado${workers.length === 1 ? "" : "s"}`;
+        els.workerBusyCount.textContent = `${new Intl.NumberFormat("pt-BR").format(busyCount)} ocupad${busyCount === 1 ? "o" : "os"}`;
+
+        if (workers.length === 0) {
+          els.workerList.innerHTML = '<div class="empty">Os workers aparecerão quando a fila da seção for criada.</div>';
+          return;
+        }
+
+        els.workerList.innerHTML = workers
+          .map((worker) => `
+            <article class="worker-item">
+              <div class="worker-row">
+                <div class="worker-name">Worker ${escapeHtml(worker.workerId)}</div>
+                <span class="worker-status ${escapeAttribute(worker.status || "idle")}">${escapeHtml(describeWorkerStatus(worker.status))}</span>
+              </div>
+              <div class="page-subtext">${escapeHtml(worker.note || "Sem atualização recente.")}</div>
+              ${worker.currentPage ? `<div class="page-url">${escapeHtml(shortUrl(worker.currentPage))}</div>` : ""}
+              ${worker.sectionLabel ? `<div class="page-subtext">Seção: ${escapeHtml(worker.sectionLabel)}</div>` : ""}
+            </article>
+          `)
+          .join("");
+      }
+
+      function renderDiscoveredPages() {
+        const items = (state.operational?.discoveredOrder || [])
+          .map((key) => state.operational.discoveredByKey[key])
+          .filter(Boolean);
+
+        els.discoveredPagesCount.textContent = `${new Intl.NumberFormat("pt-BR").format(items.length)} página${items.length === 1 ? "" : "s"}`;
+
+        if (items.length === 0) {
+          els.discoveredPagesList.innerHTML = '<div class="empty">Nenhuma página descoberta ainda.</div>';
+          return;
+        }
+
+        els.discoveredPagesList.innerHTML = items
+          .slice(0, 160)
+          .map((item) => `
+            <article class="page-item">
+              <div class="page-url">${escapeHtml(shortUrl(item.url))}</div>
+              ${item.sectionLabel ? `<div class="page-subtext">Seção: ${escapeHtml(item.sectionLabel)}</div>` : ""}
+              ${item.sourcePage ? `<div class="page-subtext">Descoberta a partir de: ${escapeHtml(shortUrl(item.sourcePage))}</div>` : ""}
+              ${item.note ? `<div class="page-subtext">Motivo: ${escapeHtml(item.note)}</div>` : ""}
+            </article>
+          `)
+          .join("");
+      }
+
+      function renderAnalyzedPages() {
+        const items = (state.operational?.analyzedOrder || [])
+          .map((key) => state.operational.analyzedByKey[key])
+          .filter(Boolean);
+
+        els.analyzedPagesCount.textContent = `${new Intl.NumberFormat("pt-BR").format(items.length)} página${items.length === 1 ? "" : "s"}`;
+
+        if (items.length === 0) {
+          els.analyzedPagesList.innerHTML = '<div class="empty">Nenhuma página analisada ainda.</div>';
+          return;
+        }
+
+        els.analyzedPagesList.innerHTML = items
+          .slice(0, 160)
+          .map((item) => `
+            <article class="page-item">
+              <div class="worker-row">
+                <div class="page-url">${escapeHtml(shortUrl(item.url))}</div>
+                <span class="page-status ${escapeAttribute(item.status || "products")}">${escapeHtml(describePageStatus(item.status, item.productsFound))}</span>
+              </div>
+              ${item.finalUrl ? `<div class="page-subtext">Página final: ${escapeHtml(shortUrl(item.finalUrl))}</div>` : ""}
+              <div class="page-subtext">
+                ${item.sectionLabel ? `Seção: ${escapeHtml(item.sectionLabel)} • ` : ""}${item.workerId ? `Worker ${escapeHtml(item.workerId)}` : "Coordenador"} • Estratégia: ${escapeHtml(item.strategy || "-")}
+              </div>
+            </article>
+          `)
+          .join("");
+      }
+
+      function trimLogPanel() {
+        const lines = els.logsPanel.querySelectorAll(".log-line");
+
+        if (lines.length <= state.maxVisibleLogs) {
+          return;
+        }
+
+        for (let index = 0; index < lines.length - state.maxVisibleLogs; index += 1) {
+          lines[index].remove();
+        }
+      }
+
+      function ingestProductsFromLog(entry) {
+        const products = Array.isArray(entry?.context?.products) ? entry.context.products : null;
+
+        if (!products || products.length === 0) {
+          return;
+        }
+
+        let changed = false;
+
+        for (const product of products) {
+          const normalized = normalizeLiveProduct(product, entry);
+
+          if (!normalized) {
+            continue;
+          }
+
+          const existing = state.productFeed.itemsByKey[normalized.key];
+
+          if (!existing) {
+            state.productFeed.itemsByKey[normalized.key] = normalized;
+            state.productFeed.order.unshift(normalized.key);
+            changed = true;
+            continue;
+          }
+
+          if (scoreLiveProduct(normalized) > scoreLiveProduct(existing)) {
+            state.productFeed.itemsByKey[normalized.key] = {
+              ...existing,
+              ...normalized,
+              firstSeenAt: existing.firstSeenAt,
+            };
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          renderProductFeed();
+        }
+      }
+
+      function normalizeLiveProduct(product, entry) {
+        const name = String(product?.name || "").trim();
+
+        if (!name) {
+          return null;
+        }
+
+        const sectionLabel =
+          String(product?.sectionLabel || entry?.context?.sectionLabel || "")
+            .trim() || null;
+        const price = String(product?.price || "").trim() || null;
+        const originalPrice = String(product?.originalPrice || "").trim() || null;
+        const unit = String(product?.unit || "").trim() || null;
+        const campaignLabel = String(product?.campaignLabel || product?.promotionLabel || "")
+          .trim() || null;
+        const badges = Array.isArray(product?.badges)
+          ? product.badges.map((badge) => String(badge || "").trim()).filter(Boolean).slice(0, 6)
+          : [];
+        const link = String(product?.link || "").trim() || null;
+        const image = String(product?.image || "").trim() || null;
+        const key = [
+          link || "",
+          name.toLowerCase(),
+          price || "",
+          sectionLabel || "",
+        ].join("|");
+
+        return {
+          key,
+          name,
+          price,
+          originalPrice,
+          unit,
+          sectionLabel,
+          campaignLabel,
+          badges,
+          link,
+          image,
+          firstSeenAt: entry?.at || new Date().toISOString(),
+        };
+      }
+
+      function scoreLiveProduct(product) {
+        let score = 0;
+
+        if (product.price) score += 2;
+        if (product.originalPrice) score += 1;
+        if (product.unit) score += 1;
+        if (product.campaignLabel) score += 2;
+        if (product.link) score += 1;
+        if (product.image) score += 1;
+        if (Array.isArray(product.badges)) score += product.badges.length;
+
+        return score;
+      }
+
+      function renderProductFeed() {
+        const items = (state.productFeed?.order || [])
+          .map((key) => state.productFeed.itemsByKey[key])
+          .filter(Boolean);
+
+        els.productFeedCount.textContent = `${new Intl.NumberFormat("pt-BR").format(items.length)} produto${items.length === 1 ? "" : "s"} visíve${items.length === 1 ? "l" : "is"}`;
+
+        if (items.length === 0) {
+          els.productFeed.innerHTML = '<div class="empty">Nenhum produto listado ainda.</div>';
+          return;
+        }
+
+        els.productFeed.innerHTML = items
+          .map((product) => {
+            const chips = [
+              product.sectionLabel,
+              product.unit,
+              product.campaignLabel,
+              ...(product.badges || []).slice(0, 3),
+            ]
+              .filter(Boolean)
+              .map((value) => `<span class="product-chip">${escapeHtml(value)}</span>`)
+              .join("");
+
+            return `
+              <article class="product-item">
+                <div class="product-name">${escapeHtml(product.name)}</div>
+                <div class="product-price-row">
+                  <span class="product-price">${escapeHtml(product.price || "Sem preço")}</span>
+                  ${product.originalPrice ? `<span class="product-price-old">${escapeHtml(product.originalPrice)}</span>` : ""}
+                </div>
+                ${chips ? `<div class="product-meta">${chips}</div>` : ""}
+                ${
+                  product.link
+                    ? `<div><a class="product-link" href="${escapeAttribute(product.link)}" target="_blank" rel="noreferrer">Abrir produto</a></div>`
+                    : ""
+                }
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      function humanizeLogEntry(entry) {
+        const context = entry.context || {};
+        const scope = entry.scope || "";
+        const message = entry.message || "";
+
+        if (scope === "backend" && message === "Job ad hoc criado.") {
+          return `Criei uma execução manual para ${context.sourceLabel || context.sourceUrl || "a fonte informada"}.`;
+        }
+
+        if (scope === "backend" && message === "Execucao ad hoc iniciada.") {
+          return `Comecei a execução manual${context.city ? ` para a cidade ${context.city}` : ""}${context.adapterHint ? ` usando o modo ${context.adapterHint}` : ""}.`;
+        }
+
+        if (scope === "backend" && message === "Job criado para fonte cadastrada.") {
+          return `Iniciei a execução da fonte cadastrada ${context.sourceLabel || context.sourceId || ""}.`.trim();
+        }
+
+        if (scope === "catalog-discovery" && message === "Iniciando descoberta inteligente de catalogo.") {
+          return `Comecei a investigar o site ${context.hostname || context.sourceUrl || ""} para descobrir onde está o catálogo completo.${context.city ? ` Também vou tentar aplicar a cidade ${context.city}.` : ""}`.trim();
+        }
+
+        if (scope === "city-context" && message === "Iniciando preparacao de contexto por cidade.") {
+          return `Vou tentar trocar o site para a cidade ${context.requestedCity || "informada na requisição"}.`;
+        }
+
+        if (scope === "city-context" && message === "Tentando estrategia de cidade.") {
+          return `Estou testando a estratégia ${quote(context.strategy)} para aplicar a cidade ${context.requestedCity || "solicitada"}.`;
+        }
+
+        if (scope === "city-context" && message === "Selecao especifica de cidade do SuperKoch executada.") {
+          return `Consegui selecionar a loja ${context.optionText || context.storeLabel || "correspondente"} e o site já passou a responder nesse contexto.`;
+        }
+
+        if (scope === "city-context" && message === "Cidade aplicada com sucesso para a fonte.") {
+          return `A cidade foi aplicada com sucesso. O site ficou na loja ${context.storeLabel || "detectada"}${context.effectiveCity ? `, na cidade ${context.effectiveCity}` : ""}.`;
+        }
+
+        if (scope === "city-context" && /cidade nao aplicada/i.test(message)) {
+          return `Não consegui confirmar a troca de cidade com segurança. O scraping vai continuar, mas o contexto da loja pode não ser o correto.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Iniciando descoberta da raiz do catalogo.") {
+          return `Agora estou testando as páginas mais prováveis do catálogo para escolher o melhor ponto de partida.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Candidato de catalogo inspecionado.") {
+          const productsFound = Number.isFinite(context.productsFound) ? context.productsFound : null;
+          const finalUrlChanged =
+            context.finalUrl && context.inputUrl && normalizeComparableUrl(context.finalUrl) !== normalizeComparableUrl(context.inputUrl);
+          let text = `Analisei ${shortUrl(context.inputUrl || context.finalUrl)}.`;
+
+          if (finalUrlChanged) {
+            text += ` O site redirecionou para ${shortUrl(context.finalUrl)}.`;
+          }
+
+          if (productsFound !== null) {
+            text += ` Encontrei ${productsFound} produto${productsFound === 1 ? "" : "s"} nessa tentativa.`;
+          }
+
+          if (context.title) {
+            text += ` A página aberta foi ${quote(context.title)}.`;
+          }
+
+          if (context.error) {
+            text += ` Houve um erro nessa verificação: ${context.error}.`;
+          }
+
+          return text;
+        }
+
+        if (scope === "catalog-discovery" && message === "Raiz do catalogo selecionada.") {
+          return `Escolhi ${shortUrl(context.selectedRootUrl)} como ponto inicial para explorar o catálogo.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Descoberta de secoes do catalogo concluida.") {
+          return `Terminei a busca por seções e encontrei ${context.totalSections || 0} área${context.totalSections === 1 ? "" : "s"} para explorar.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Secoes de catalogo descobertas.") {
+          return `Identifiquei ${context.sectionsDiscovered || 0} seção${context.sectionsDiscovered === 1 ? "" : "ões"} com cara de catálogo.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Nenhuma secao explicita encontrada; sera usado apenas o catalogo principal.") {
+          return `Não encontrei seções claras no site. Vou seguir apenas com a página principal escolhida como catálogo.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Iniciando processamento de secao do catalogo.") {
+          return `Comecei a varrer a seção ${quote(context.sectionLabel || "sem nome")} em ${shortUrl(context.sectionUrl)}.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Paginas da secao descobertas.") {
+          return `Dentro dessa seção, encontrei ${context.totalPagesDiscovered || 0} página${context.totalPagesDiscovered === 1 ? "" : "s"} para visitar.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Fila de paginas da secao inicializada.") {
+          return `Montei a fila inicial da seção com ${context.totalPagesDiscovered || 0} página${context.totalPagesDiscovered === 1 ? "" : "s"} e ${context.workerCount || 0} worker${context.workerCount === 1 ? "" : "s"} prontos para começar.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Worker da secao iniciado.") {
+          return `Worker ${context.workerId || "?"} ficou disponível para receber páginas dessa seção.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Worker assumiu pagina da fila.") {
+          return `Worker ${context.workerId || "?"} começou a analisar ${shortUrl(context.pageUrl)}.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Worker ocioso aguardando novas paginas.") {
+          return `Worker ${context.workerId || "?"} ficou ocioso aguardando que novas páginas entrem na fila.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Worker finalizou execucao da secao.") {
+          return `Worker ${context.workerId || "?"} encerrou sua participação nesta seção.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Novas paginas relacionadas foram descobertas dentro da secao.") {
+          return `Encontrei ${Array.isArray(context.discoveredLinks) ? context.discoveredLinks.length : 0} nova${Array.isArray(context.discoveredLinks) && context.discoveredLinks.length === 1 ? "" : "s"} página${Array.isArray(context.discoveredLinks) && context.discoveredLinks.length === 1 ? "" : "s"} relacionada${Array.isArray(context.discoveredLinks) && context.discoveredLinks.length === 1 ? "" : "s"} a partir de ${shortUrl(context.pageUrl)}.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Pagina ignorada por fingerprint duplicada.") {
+          return `Ignorei uma página repetida para evitar contar os mesmos produtos duas vezes.${context.workerId ? ` Isso aconteceu no worker ${context.workerId}.` : ""}`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Pagina processada sem produtos validos.") {
+          return `Analisei ${shortUrl(context.pageUrl)}${context.workerId ? ` com o worker ${context.workerId}` : ""}, mas ela não trouxe produtos aproveitáveis.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Pagina da secao processada.") {
+          return `Worker ${context.workerId || "?"} concluiu ${shortUrl(context.pageUrl)} e extraiu ${context.productsFound || 0} produto${context.productsFound === 1 ? "" : "s"} dessa página.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Pagina da fila falhou ao abrir.") {
+          return `Worker ${context.workerId || "?"} não conseguiu abrir ${shortUrl(context.pageUrl)} a tempo. Vou registrar a falha e seguir para a próxima página da fila.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Falha ao abrir URL base da secao; usando fallback minimo.") {
+          return `A página base da seção ${quote(context.sectionLabel || "sem nome")} não abriu a tempo. Vou tentar seguir usando a própria URL da seção como fallback mínimo.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Secao processada sem produtos aproveitaveis.") {
+          return `Terminei essa seção, mas não apareceu nenhum produto utilizável nela.`;
+        }
+
+        if (scope === "catalog-discovery" && message === "Secao falhou durante processamento.") {
+          return `A seção ${quote(context.sectionLabel || "sem nome")} falhou durante o processamento, mas a execução vai continuar com as próximas seções.`;
+        }
+
+        if (scope === "catalog-discovery" && /Catalogo generico concluido com produtos encontrados/i.test(message)) {
+          return `A coleta terminou com sucesso e reuniu ${context.totalProducts || 0} produtos em ${context.totalSections || 0} seção${context.totalSections === 1 ? "" : "ões"}.`;
+        }
+
+        if (scope === "catalog-discovery" && /Catalogo generico concluido sem produtos aproveitaveis/i.test(message)) {
+          return `A varredura terminou, mas não encontrei produtos aproveitáveis nessa fonte.`;
+        }
+
+        if (scope === "webhook" && message === "Webhook notificado com sucesso.") {
+          return `Enviei o resultado final para o webhook configurado com sucesso.`;
+        }
+
+        if (scope === "webhook" && message === "Webhook respondeu com status nao esperado.") {
+          return `O webhook respondeu, mas com um status HTTP inesperado. Vale revisar o endpoint de destino.`;
+        }
+
+        if (scope === "webhook" && message === "Falha ao notificar webhook.") {
+          return `Não consegui enviar o resultado para o webhook configurado.`;
+        }
+
+        return message || "Evento registrado.";
+      }
+
+      function buildLogTags(entry) {
+        const context = entry.context || {};
+        const tags = [];
+
+        if (context.requestedCity) {
+          tags.push(`cidade pedida: ${context.requestedCity}`);
+        }
+
+        if (context.effectiveCity) {
+          tags.push(`cidade aplicada: ${context.effectiveCity}`);
+        }
+
+        if (context.storeLabel) {
+          tags.push(`loja: ${context.storeLabel}`);
+        }
+
+        if (Number.isFinite(context.productsFound)) {
+          tags.push(`produtos nesta etapa: ${context.productsFound}`);
+        }
+
+        if (Number.isFinite(context.totalProducts)) {
+          tags.push(`produtos finais: ${context.totalProducts}`);
+        }
+
+        if (Number.isFinite(context.totalSections)) {
+          tags.push(`seções: ${context.totalSections}`);
+        }
+
+        if (Number.isFinite(context.totalPagesDiscovered)) {
+          tags.push(`páginas na seção: ${context.totalPagesDiscovered}`);
+        }
+
+        if (Number.isFinite(context.analyzedPages)) {
+          tags.push(`páginas analisadas: ${context.analyzedPages}`);
+        }
+
+        if (Number.isFinite(context.workerCount)) {
+          tags.push(`workers: ${context.workerCount}`);
+        }
+
+        if (Number.isFinite(context.workerId)) {
+          tags.push(`worker: ${context.workerId}`);
+        }
+
+        if (Number.isFinite(context.queueSize)) {
+          tags.push(`fila restante: ${context.queueSize}`);
+        }
+
+        if (context.strategy) {
+          tags.push(`estratégia: ${context.strategy}`);
+        }
+
+        if (context.selectedRootUrl) {
+          tags.push(`raiz escolhida: ${shortUrl(context.selectedRootUrl)}`);
+        }
+
+        if (context.sectionLabel) {
+          tags.push(`seção: ${context.sectionLabel}`);
+        }
+
+        if (context.error) {
+          tags.push(`erro técnico detectado`);
+        }
+
+        return tags
+          .slice(0, 6)
+          .map((tag) => `<span class="log-tag">${escapeHtml(tag)}</span>`)
+          .join("");
+      }
+
+      function describeScope(scope) {
+        const labels = {
+          backend: "orquestração",
+          "catalog-discovery": "descoberta do catálogo",
+          "city-context": "seleção de cidade",
+          webhook: "envio para webhook",
+        };
+
+        return labels[scope] || scope || "sistema";
+      }
+
+      function describeLevel(level) {
+        const labels = {
+          info: "informação",
+          warn: "atenção",
+          error: "erro",
+        };
+
+        return labels[level] || level || "info";
+      }
+
+      function describeWorkerStatus(status) {
+        const labels = {
+          busy: "Trabalhando",
+          idle: "Ocioso",
+          done: "Concluído",
+        };
+
+        return labels[status] || "Ocioso";
+      }
+
+      function describePageStatus(status, productsFound) {
+        if (status === "products") {
+          return `${productsFound || 0} produto${productsFound === 1 ? "" : "s"}`;
+        }
+
+        if (status === "no-products") {
+          return "Sem produtos";
+        }
+
+        if (status === "duplicate") {
+          return "Duplicada";
+        }
+
+        if (status === "failed") {
+          return "Falhou";
+        }
+
+        return "Analisada";
+      }
+
+      function formatTimestamp(value) {
+        if (!value) {
+          return "-";
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+
+        return date.toLocaleString("pt-BR");
+      }
+
+      function shortUrl(value) {
+        if (!value) {
+          return "link não informado";
+        }
+
+        try {
+          const url = new URL(value);
+          return `${url.hostname}${url.pathname}${url.search}`;
+        } catch (_error) {
+          return String(value);
+        }
+      }
+
+      function normalizeComparableUrl(value) {
+        return String(value || "").replace(/\/+$/, "");
+      }
+
+      function quote(value) {
+        return value ? `"${value}"` : "não informada";
+      }
+
+      function setStatus(text, statusClass) {
+        els.statusBadge.textContent = text;
+        els.statusBadge.className = "status-badge";
+
+        if (statusClass) {
+          els.statusBadge.classList.add(String(statusClass).toLowerCase());
+        }
+      }
+
+      function renderError(error) {
+        els.responsePreview.textContent = JSON.stringify(
+          {
+            error: error.message,
+          },
+          null,
+          2,
+        );
+        setStatus("Erro", "failed");
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(value);
+      }
+    </script>
+  </body>
+</html>

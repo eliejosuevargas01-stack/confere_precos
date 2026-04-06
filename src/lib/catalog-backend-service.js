@@ -4,16 +4,19 @@ const {
   DEFAULT_MAX_ITEMS_PER_PAGE,
   DEFAULT_MAX_PAGES_PER_SECTION,
   DEFAULT_MAX_SECTIONS,
+  DEFAULT_WORKER_COUNT,
   DEFAULT_OUTPUT_ROOT,
   scrapeIntelligentCatalog,
 } = require("./intelligent-catalog-scraper");
-const { ensureDir, slugify } = require("./output-utils");
+const { ensureDir, slugify, toCsv } = require("./output-utils");
 const { normalizeUrl } = require("./auto-site-profiler");
 const { resolveFromCwd } = require("./scraper-core");
 
 const DEFAULT_DATA_ROOT = "data/catalog-api";
 const DEFAULT_SCHEDULE_MINUTES = 360;
 const DEFAULT_TICK_MS = 60_000;
+const DEFAULT_BATCH_LIMIT = 50;
+const DEFAULT_PRODUCTS_WEBHOOK_BATCH_SIZE = 10;
 
 function createCatalogBackendService(options = {}) {
   const dataRoot = resolveFromCwd(options.dataRoot || DEFAULT_DATA_ROOT);
@@ -22,6 +25,9 @@ function createCatalogBackendService(options = {}) {
   const logsDir = path.join(dataRoot, "logs");
   const jobsIndexPath = path.join(dataRoot, "jobs-index.json");
   const catalogsRoot = path.join(dataRoot, "catalogs");
+  const batchesDir = path.join(dataRoot, "batches");
+  const batchRunsRoot = path.join(dataRoot, "batch-runs");
+  const batchesIndexPath = path.join(dataRoot, "batches-index.json");
   const webhookUrl =
     options.webhookUrl ||
     process.env.CATALOG_API_WEBHOOK_URL ||
@@ -32,19 +38,39 @@ function createCatalogBackendService(options = {}) {
     process.env.CATALOG_API_WEBHOOK_TOKEN ||
     process.env.BACKEND_WEBHOOK_TOKEN ||
     null;
+  const productsWebhookUrl =
+    options.productsWebhookUrl ||
+    process.env.CATALOG_API_PRODUCTS_WEBHOOK_URL ||
+    process.env.BACKEND_PRODUCTS_WEBHOOK_URL ||
+    null;
+  const productsWebhookToken =
+    options.productsWebhookToken ||
+    process.env.CATALOG_API_PRODUCTS_WEBHOOK_TOKEN ||
+    process.env.BACKEND_PRODUCTS_WEBHOOK_TOKEN ||
+    null;
+  const productsWebhookBatchSize = sanitizePositiveInteger(
+    options.productsWebhookBatchSize ||
+      process.env.CATALOG_API_PRODUCTS_WEBHOOK_BATCH_SIZE ||
+      process.env.BACKEND_PRODUCTS_WEBHOOK_BATCH_SIZE,
+    DEFAULT_PRODUCTS_WEBHOOK_BATCH_SIZE,
+  );
   const tickMs =
     Number.isFinite(options.tickMs) && options.tickMs > 0 ? options.tickMs : DEFAULT_TICK_MS;
 
   let timer = null;
   const runningBySource = new Map();
+  const runningBatches = new Map();
 
   async function start() {
     await ensureDir(dataRoot);
     await ensureDir(jobsDir);
     await ensureDir(logsDir);
     await ensureDir(catalogsRoot);
+    await ensureDir(batchesDir);
+    await ensureDir(batchRunsRoot);
     await ensureSourcesFile();
     await ensureJobsIndexFile();
+    await ensureBatchesIndexFile();
 
     timer = setInterval(() => {
       tick().catch(() => {});
@@ -222,55 +248,8 @@ function createCatalogBackendService(options = {}) {
   }
 
   async function runAdhoc(input, { wait = true } = {}) {
-    const source = normalizeSourceInput(
-      {
-        ...input,
-        enabled: false,
-        scheduleMinutes: 0,
-      },
-      null,
-    );
-    const jobId = buildJobId(source.id || slugify(source.label || "adhoc"));
-    const logPath = path.join(logsDir, `${jobId}.ndjson`);
-    const job = {
-      id: jobId,
-      sourceId: null,
-      sourceLabel: source.label,
-      sourceUrl: source.url,
-      status: "running",
-      reason: "adhoc",
-      startedAt: new Date().toISOString(),
-      finishedAt: null,
-      error: null,
-      adapterId: source.adapterHint,
-      output: null,
-      metrics: null,
-      logPath,
-    };
-
-    await persistJob(job);
-    await appendJobLog(job.id, {
-      level: "info",
-      scope: "backend",
-      message: "Job ad hoc criado.",
-      context: {
-        sourceLabel: source.label,
-        sourceUrl: source.url,
-      },
-    });
-    await appendJobLog(job.id, {
-      level: "info",
-      scope: "backend",
-      message: "Execucao ad hoc iniciada.",
-      context: {
-        adapterHint: source.adapterHint,
-        city: source.city,
-      },
-    });
-
-    const promise = runScrapeForSource(source, jobId)
-      .then((result) => finalizeJob(job, result))
-      .catch((error) => failJob(job, error));
+    const source = createAdhocSource(input);
+    const { job, promise } = await startAdhocJob(source, { reason: input?.reason || "adhoc" });
 
     if (!wait) {
       promise.catch(() => {});
@@ -278,6 +257,70 @@ function createCatalogBackendService(options = {}) {
     }
 
     return promise;
+  }
+
+  async function runBatch(input, { wait = false } = {}) {
+    const normalized = normalizeBatchInput(input);
+    const batchId = buildBatchId(normalized.label || `lote-${normalized.items.length}`);
+    const batch = {
+      id: batchId,
+      label: normalized.label,
+      status: "running",
+      reason: normalized.reason,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      currentItemIndex: null,
+      currentJobId: null,
+      metrics: null,
+      output: null,
+      error: null,
+      items: normalized.items.map((item, index) => ({
+        index,
+        label: item.label,
+        url: item.url,
+        city: item.city,
+        adapterHint: item.adapterHint,
+        status: "queued",
+        startedAt: null,
+        finishedAt: null,
+        jobId: null,
+        metrics: null,
+        error: null,
+        output: null,
+      })),
+    };
+
+    await persistBatch(batch);
+
+    const promise = runBatchInternal(batch, normalized)
+      .finally(() => {
+        runningBatches.delete(batch.id);
+      });
+
+    runningBatches.set(batch.id, { promise });
+
+    if (!wait) {
+      promise.catch(() => {});
+      return batch;
+    }
+
+    return promise;
+  }
+
+  async function listBatches({ limit = DEFAULT_BATCH_LIMIT } = {}) {
+    const batches = await readBatchesIndex();
+    return batches.slice(0, Math.max(limit, 1));
+  }
+
+  async function getBatch(batchId) {
+    const batchPath = path.join(batchesDir, `${batchId}.json`);
+    return readJson(batchPath).catch((error) => {
+      if (error.code === "ENOENT") {
+        return null;
+      }
+
+      throw error;
+    });
   }
 
   async function getLatestCatalog(sourceId) {
@@ -354,8 +397,10 @@ function createCatalogBackendService(options = {}) {
       ok: true,
       dataRoot,
       runningSources: Array.from(runningBySource.keys()),
+      runningBatches: Array.from(runningBatches.keys()),
       tickMs,
       webhookConfigured: Boolean(webhookUrl),
+      productsWebhookConfigured: Boolean(productsWebhookUrl),
     };
   }
 
@@ -384,6 +429,54 @@ function createCatalogBackendService(options = {}) {
     }
   }
 
+  async function startAdhocJob(source, { reason = "adhoc" } = {}) {
+    const jobId = buildJobId(source.id || slugify(source.label || "adhoc"));
+    const logPath = path.join(logsDir, `${jobId}.ndjson`);
+    const job = {
+      id: jobId,
+      sourceId: null,
+      sourceLabel: source.label,
+      sourceUrl: source.url,
+      status: "running",
+      reason,
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      error: null,
+      adapterId: source.adapterHint,
+      output: null,
+      metrics: null,
+      logPath,
+    };
+
+    await persistJob(job);
+    await appendJobLog(job.id, {
+      level: "info",
+      scope: "backend",
+      message: "Job ad hoc criado.",
+      context: {
+        sourceLabel: source.label,
+        sourceUrl: source.url,
+        reason,
+      },
+    });
+    await appendJobLog(job.id, {
+      level: "info",
+      scope: "backend",
+      message: "Execucao ad hoc iniciada.",
+      context: {
+        adapterHint: source.adapterHint,
+        city: source.city,
+        workerCount: source.workerCount,
+      },
+    });
+
+    const promise = runScrapeForSource(source, jobId)
+      .then((result) => finalizeJob(job, result, source))
+      .catch((error) => failJob(job, error, source));
+
+    return { job, promise };
+  }
+
   async function runScrapeForSource(source, jobId) {
     const sourceOutputRoot = path.join(catalogsRoot, source.id || slugify(source.label));
 
@@ -397,10 +490,125 @@ function createCatalogBackendService(options = {}) {
       maxSections: source.maxSections,
       maxPagesPerSection: source.maxPagesPerSection,
       maxItemsPerPage: source.maxItemsPerPage,
+      workerCount: source.workerCount,
       onLog: (entry) => {
         appendJobLog(jobId, entry).catch(() => {});
       },
     });
+  }
+
+  async function runBatchInternal(batch, normalizedBatch) {
+    let currentBatch = { ...batch };
+    const successfulCatalogs = [];
+
+    try {
+      for (let index = 0; index < normalizedBatch.items.length; index += 1) {
+        const source = normalizedBatch.items[index];
+        const previousItem = currentBatch.items[index];
+        const itemStartedAt = new Date().toISOString();
+
+        currentBatch = {
+          ...currentBatch,
+          currentItemIndex: index,
+          currentJobId: null,
+          items: replaceArrayItem(currentBatch.items, index, {
+            ...previousItem,
+            status: "running",
+            startedAt: itemStartedAt,
+            finishedAt: null,
+            error: null,
+          }),
+        };
+        await persistBatch(currentBatch);
+
+        const { job, promise } = await startAdhocJob(source, {
+          reason: `batch:${currentBatch.id}`,
+        });
+
+        currentBatch = {
+          ...currentBatch,
+          currentJobId: job.id,
+          items: replaceArrayItem(currentBatch.items, index, {
+            ...currentBatch.items[index],
+            jobId: job.id,
+          }),
+        };
+        await persistBatch(currentBatch);
+
+        const completedJob = await promise;
+        const finishedAt = completedJob.finishedAt || new Date().toISOString();
+        const itemResult = {
+          ...currentBatch.items[index],
+          status: completedJob.status,
+          finishedAt,
+          metrics: completedJob.metrics || null,
+          error: completedJob.error || null,
+          output: completedJob.output || null,
+        };
+
+        currentBatch = {
+          ...currentBatch,
+          currentJobId: null,
+          items: replaceArrayItem(currentBatch.items, index, itemResult),
+        };
+        await persistBatch(currentBatch);
+
+        if (completedJob.status === "completed" && completedJob.output?.jsonPath) {
+          const catalogPayload = await readJson(completedJob.output.jsonPath).catch(() => null);
+
+          successfulCatalogs.push({
+            index,
+            source: {
+              label: source.label,
+              url: source.url,
+              city: source.city,
+              adapterHint: source.adapterHint,
+            },
+            job: completedJob,
+            metadata: catalogPayload?.metadata || null,
+            discovery: catalogPayload?.discovery || null,
+            sections: catalogPayload?.sections || [],
+            products: Array.isArray(catalogPayload?.products) ? catalogPayload.products : [],
+          });
+        }
+      }
+
+      const output = await writeBatchArtifacts({
+        batchRunsRoot,
+        batchId: currentBatch.id,
+        label: currentBatch.label,
+        items: currentBatch.items,
+        catalogs: successfulCatalogs,
+      });
+
+      const metrics = summarizeBatch(currentBatch.items, successfulCatalogs);
+      currentBatch = {
+        ...currentBatch,
+        status: "completed",
+        finishedAt: new Date().toISOString(),
+        currentItemIndex: null,
+        currentJobId: null,
+        metrics,
+        output,
+        error: null,
+      };
+      await persistBatch(currentBatch);
+
+      return currentBatch;
+    } catch (error) {
+      currentBatch = {
+        ...currentBatch,
+        status: "failed",
+        finishedAt: new Date().toISOString(),
+        currentItemIndex: null,
+        currentJobId: null,
+        error: {
+          message: error.message,
+        },
+      };
+      await persistBatch(currentBatch);
+      return currentBatch;
+    }
   }
 
   async function finalizeJob(job, result, source = null) {
@@ -448,6 +656,11 @@ function createCatalogBackendService(options = {}) {
 
     await notifyWebhook({
       event: "catalog.completed",
+      job: completedJob,
+      source,
+      result,
+    });
+    await notifyProductsWebhook({
       job: completedJob,
       source,
       result,
@@ -519,6 +732,10 @@ function createCatalogBackendService(options = {}) {
     await ensureFile(jobsIndexPath, []);
   }
 
+  async function ensureBatchesIndexFile() {
+    await ensureFile(batchesIndexPath, []);
+  }
+
   async function readSources() {
     await ensureSourcesFile();
     return readJson(sourcesPath);
@@ -539,6 +756,11 @@ function createCatalogBackendService(options = {}) {
   async function readJobsIndex() {
     await ensureJobsIndexFile();
     return readJson(jobsIndexPath);
+  }
+
+  async function readBatchesIndex() {
+    await ensureBatchesIndexFile();
+    return readJson(batchesIndexPath);
   }
 
   async function persistJob(job) {
@@ -567,6 +789,20 @@ function createCatalogBackendService(options = {}) {
     };
 
     await fs.appendFile(targetPath, `${JSON.stringify(payload)}\n`, "utf8");
+  }
+
+  async function persistBatch(batch) {
+    await ensureDir(batchesDir);
+    const batchPath = path.join(batchesDir, `${batch.id}.json`);
+    await fs.writeFile(batchPath, JSON.stringify(batch, null, 2), "utf8");
+
+    const batches = await readBatchesIndex();
+    const withoutCurrent = batches.filter((entry) => entry.id !== batch.id);
+    const next = [toBatchSummary(batch), ...withoutCurrent]
+      .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
+      .slice(0, DEFAULT_BATCH_LIMIT);
+
+    await fs.writeFile(batchesIndexPath, JSON.stringify(next, null, 2), "utf8");
   }
 
   async function notifyWebhook({ event, job, source = null, result = null, error = null }) {
@@ -636,23 +872,126 @@ function createCatalogBackendService(options = {}) {
     }
   }
 
+  async function notifyProductsWebhook({ job, source = null, result = null }) {
+    const resolvedProductsWebhookUrl = source?.productsWebhookUrl || productsWebhookUrl;
+    const resolvedProductsWebhookToken = source?.productsWebhookToken || productsWebhookToken;
+    const resolvedProductsWebhookBatchSize = sanitizePositiveInteger(
+      source?.productsWebhookBatchSize,
+      productsWebhookBatchSize,
+    );
+
+    if (
+      !resolvedProductsWebhookUrl ||
+      !Array.isArray(result?.products) ||
+      result.products.length === 0
+    ) {
+      return;
+    }
+
+    const batches = chunkArray(result.products, resolvedProductsWebhookBatchSize);
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex += 1) {
+      const products = batches[batchIndex];
+      const payload = products.map((product, productIndex) => ({
+        at: new Date().toISOString(),
+        jobId: job.id,
+        sourceId: job.sourceId || source?.id || null,
+        sourceLabel: job.sourceLabel || source?.label || null,
+        sourceUrl: job.sourceUrl || source?.url || null,
+        status: job.status,
+        requestedCity: result?.metadata?.requestedCity || null,
+        effectiveCity: result?.metadata?.effectiveCity || null,
+        storeLabel: result?.metadata?.storeLabel || null,
+        cityCoverage: result?.metadata?.cityCoverage || null,
+        cityEligible:
+          typeof result?.metadata?.cityEligible === "boolean"
+            ? result.metadata.cityEligible
+            : null,
+        contextUrl: result?.metadata?.contextUrl || null,
+        adapterId: result?.metadata?.adapterId || job.adapterId || null,
+        totalProducts: result.products.length,
+        batchIndex: batchIndex + 1,
+        totalBatches: batches.length,
+        batchSize: products.length,
+        itemIndexInBatch: productIndex + 1,
+        ...product,
+      }));
+
+      try {
+        const response = await fetch(resolvedProductsWebhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(resolvedProductsWebhookToken
+              ? { Authorization: `Bearer ${resolvedProductsWebhookToken}` }
+              : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+
+        await appendJobLog(job.id, {
+          level: response.ok ? "info" : "warn",
+          scope: "products-webhook",
+          message: response.ok
+            ? "Lote de produtos enviado com sucesso."
+            : "Webhook de produtos respondeu com status nao esperado.",
+          context: {
+            productsWebhookUrl: resolvedProductsWebhookUrl,
+            batchIndex: batchIndex + 1,
+            totalBatches: batches.length,
+            batchSize: products.length,
+            status: response.status,
+            statusText: response.statusText,
+          },
+        });
+      } catch (productsWebhookError) {
+        await appendJobLog(job.id, {
+          level: "error",
+          scope: "products-webhook",
+          message: "Falha ao enviar lote de produtos.",
+          context: {
+            productsWebhookUrl: resolvedProductsWebhookUrl,
+            batchIndex: batchIndex + 1,
+            totalBatches: batches.length,
+            batchSize: products.length,
+            error: productsWebhookError.message,
+          },
+        });
+      }
+    }
+  }
+
   return {
     createSource,
     deleteSource,
     getArtifactsRoot,
+    getBatch,
     getHealth,
     getJob,
     getJobLogs,
     getLatestCatalog,
     getSource,
+    listBatches,
     listJobs,
     listSources,
     runAdhoc,
+    runBatch,
     runSource,
     start,
     stop,
     updateSource,
   };
+}
+
+function createAdhocSource(input) {
+  return normalizeSourceInput(
+    {
+      ...input,
+      enabled: false,
+      scheduleMinutes: 0,
+    },
+    null,
+  );
 }
 
 function normalizeSourceInput(input, existing) {
@@ -685,6 +1024,22 @@ function normalizeSourceInput(input, existing) {
     maxItemsPerPage: sanitizePositiveInteger(
       input.maxItemsPerPage,
       existing?.maxItemsPerPage ?? DEFAULT_MAX_ITEMS_PER_PAGE,
+    ),
+    workerCount: sanitizePositiveInteger(
+      input.workerCount,
+      existing?.workerCount ?? DEFAULT_WORKER_COUNT,
+    ),
+    productsWebhookUrl:
+      sanitizeString(input.productsWebhookUrl) ||
+      existing?.productsWebhookUrl ||
+      null,
+    productsWebhookToken:
+      sanitizeString(input.productsWebhookToken) ||
+      existing?.productsWebhookToken ||
+      null,
+    productsWebhookBatchSize: sanitizePositiveInteger(
+      input.productsWebhookBatchSize,
+      existing?.productsWebhookBatchSize ?? DEFAULT_PRODUCTS_WEBHOOK_BATCH_SIZE,
     ),
     adapterHint:
       sanitizeString(input.adapterHint) || existing?.adapterHint || "auto",
@@ -764,8 +1119,30 @@ function toJobSummary(job) {
   };
 }
 
+function toBatchSummary(batch) {
+  return {
+    id: batch.id,
+    label: batch.label,
+    status: batch.status,
+    reason: batch.reason,
+    startedAt: batch.startedAt,
+    finishedAt: batch.finishedAt,
+    currentItemIndex: batch.currentItemIndex,
+    currentJobId: batch.currentJobId,
+    metrics: batch.metrics || null,
+    error: batch.error || null,
+    output: batch.output || null,
+    totalItems: Array.isArray(batch.items) ? batch.items.length : 0,
+    items: Array.isArray(batch.items) ? batch.items : [],
+  };
+}
+
 function buildJobId(sourceId) {
   return `${new Date().toISOString().replace(/[:.]/g, "-")}-${slugify(sourceId).slice(0, 48)}`;
+}
+
+function buildBatchId(label) {
+  return `${new Date().toISOString().replace(/[:.]/g, "-")}-batch-${slugify(label).slice(0, 42)}`;
 }
 
 async function ensureFile(targetPath, fallbackValue) {
@@ -803,6 +1180,182 @@ function mapArtifactPaths(job) {
     json: job.output?.jsonPath || null,
     csv: job.output?.csvPath || null,
     logs: job.logPath || null,
+  };
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function replaceArrayItem(items, index, nextItem) {
+  return items.map((item, itemIndex) => (itemIndex === index ? nextItem : item));
+}
+
+function normalizeBatchInput(input) {
+  const batchLabel = sanitizeString(input.label) || "Lote de catálogos";
+  const shared = {
+    city: sanitizeString(input.city) || null,
+    adapterHint: sanitizeString(input.adapterHint) || "auto",
+    maxSections: sanitizePositiveInteger(input.maxSections, DEFAULT_MAX_SECTIONS),
+    maxPagesPerSection: sanitizePositiveInteger(
+      input.maxPagesPerSection,
+      DEFAULT_MAX_PAGES_PER_SECTION,
+    ),
+    maxItemsPerPage: sanitizePositiveInteger(
+      input.maxItemsPerPage,
+      DEFAULT_MAX_ITEMS_PER_PAGE,
+    ),
+    workerCount: sanitizePositiveInteger(input.workerCount, DEFAULT_WORKER_COUNT),
+    headless: readBoolean(input.headless, true),
+    productsWebhookUrl: sanitizeString(input.productsWebhookUrl) || null,
+    productsWebhookToken: sanitizeString(input.productsWebhookToken) || null,
+    productsWebhookBatchSize: sanitizePositiveInteger(
+      input.productsWebhookBatchSize,
+      DEFAULT_PRODUCTS_WEBHOOK_BATCH_SIZE,
+    ),
+  };
+  const rawItems = normalizeBatchRawItems(input);
+
+  if (!rawItems.length) {
+    throw new Error("Informe pelo menos uma URL para o lote.");
+  }
+
+  return {
+    label: batchLabel,
+    reason: sanitizeString(input.reason) || "batch",
+    items: rawItems.map((item) =>
+      createAdhocSource({
+        ...shared,
+        ...(typeof item === "string" ? { url: item } : item),
+      }),
+    ),
+  };
+}
+
+function normalizeBatchRawItems(input) {
+  if (Array.isArray(input.items) && input.items.length > 0) {
+    return input.items;
+  }
+
+  if (Array.isArray(input.urls) && input.urls.length > 0) {
+    return input.urls.map((url) => ({ url }));
+  }
+
+  if (typeof input.urls === "string") {
+    return input.urls
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((url) => ({ url }));
+  }
+
+  if (sanitizeString(input.url)) {
+    return [{ url: sanitizeString(input.url), label: sanitizeString(input.label) }];
+  }
+
+  return [];
+}
+
+async function writeBatchArtifacts({ batchRunsRoot, batchId, label, items, catalogs }) {
+  const stamp = new Date().toISOString().replaceAll(":", "-");
+  const runDir = path.join(resolveFromCwd(batchRunsRoot), `${stamp}-${slugify(label || batchId)}`);
+  const summaryPath = path.join(runDir, "summary.json");
+  const jsonPath = path.join(runDir, "catalogs.json");
+  const csvPath = path.join(runDir, "catalogs.csv");
+
+  await ensureDir(runDir);
+
+  const csvRows = flattenBatchCsvRows(batchId, label, catalogs);
+  const summary = {
+    batchId,
+    label,
+    generatedAt: new Date().toISOString(),
+    totalItems: items.length,
+    successfulItems: items.filter((item) => item.status === "completed").length,
+    failedItems: items.filter((item) => item.status === "failed").length,
+    totalProducts: csvRows.length,
+    items: items.map((item) => ({
+      index: item.index,
+      label: item.label,
+      url: item.url,
+      city: item.city,
+      status: item.status,
+      jobId: item.jobId,
+      metrics: item.metrics,
+      error: item.error,
+      output: item.output,
+    })),
+  };
+
+  await fs.writeFile(
+    jsonPath,
+    JSON.stringify(
+      {
+        metadata: summary,
+        catalogs,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  await fs.writeFile(csvPath, toCsv(csvRows), "utf8");
+  await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2), "utf8");
+
+  return {
+    runDir,
+    summaryPath,
+    jsonPath,
+    csvPath,
+  };
+}
+
+function flattenBatchCsvRows(batchId, batchLabel, catalogs) {
+  const rows = [];
+
+  for (const catalog of catalogs) {
+    for (const product of catalog.products || []) {
+      rows.push({
+        batchId,
+        batchLabel,
+        itemIndex: catalog.index + 1,
+        sourceLabel: catalog.source?.label || null,
+        sourceUrl: catalog.source?.url || null,
+        sourceCity: catalog.source?.city || null,
+        adapterHint: catalog.source?.adapterHint || null,
+        jobId: catalog.job?.id || null,
+        requestedCity: catalog.metadata?.requestedCity || null,
+        effectiveCity: catalog.metadata?.effectiveCity || null,
+        storeLabel: catalog.metadata?.storeLabel || null,
+        cityCoverage: catalog.metadata?.cityCoverage || null,
+        cityEligible:
+          typeof catalog.metadata?.cityEligible === "boolean"
+            ? catalog.metadata.cityEligible
+            : null,
+        catalogRootUrl: catalog.metadata?.rootUrl || null,
+        ...product,
+      });
+    }
+  }
+
+  return rows;
+}
+
+function summarizeBatch(items, catalogs) {
+  return {
+    totalItems: items.length,
+    completedItems: items.filter((item) => item.status === "completed").length,
+    failedItems: items.filter((item) => item.status === "failed").length,
+    totalProducts: catalogs.reduce(
+      (sum, catalog) => sum + (Array.isArray(catalog.products) ? catalog.products.length : 0),
+      0,
+    ),
   };
 }
 

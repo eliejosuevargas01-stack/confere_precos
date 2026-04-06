@@ -11,7 +11,7 @@ const DEFAULT_PROFILE_ROOT = "profiles";
 const DEFAULT_LINKS_FILE = "links.txt";
 const DEFAULT_STOP_THRESHOLD = 20;
 const MAX_EXTRA_CANDIDATES = 7;
-const MAX_DISCOVERED_LINKS = 8;
+const MAX_DISCOVERED_LINKS = 24;
 const NETWORK_BODY_LIMIT = 1_200_000;
 const NAVIGATION_TIMEOUT_MS = 45_000;
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -39,6 +39,10 @@ const UNIT_KEY_PATTERN =
 const DISCOUNT_KEY_PATTERN = /(^|\.)(discount|percentage|percentual|desconto)$/i;
 const PROMOTION_LABEL_KEY_PATTERN =
   /(^|\.)(promotion\.name|promotion\.title|promotion\.tag|promotion\.label|promotionName|promotionTitle|promotionLabel|oferta\.nome|oferta\.tag)$/i;
+const BADGE_KEY_PATTERN =
+  /(^|\.)(badge|badges|tag|tags|flag|flags|selo|selos|label|labels|chip|chips|highlight|highlights|stamp|stamps|ribbon|marketing|benefit|benefits)$/i;
+const LIMIT_KEY_PATTERN =
+  /(^|\.)(cpf|limit|limitText|maxPerCpf|max_per_cpf|maxQuantity|max_quantity|purchaseLimit|limite|limite_por_cpf)$/i;
 
 async function runAutoScraper({
   urls,
@@ -433,6 +437,7 @@ async function settlePage(page) {
   }
 
   await clickLoadMoreButtons(page);
+  await clickCarouselControls(page);
   await page.waitForLoadState("networkidle", { timeout: 6_000 }).catch(() => {});
   await page.waitForTimeout(1_200);
 }
@@ -476,6 +481,34 @@ async function clickLoadMoreButtons(page) {
       }
     } catch {
       // Botões genéricos são opcionais; seguimos sem falhar.
+    }
+  }
+}
+
+async function clickCarouselControls(page) {
+  const selectors = [
+    ".swiper-button-next",
+    ".slick-next",
+    "[class*=carousel] button[class*=next]",
+    "[class*=slider] button[class*=next]",
+    "button[aria-label*=próx i]",
+    "button[aria-label*=prox i]",
+    "button[aria-label*=next i]",
+    "button[title*=próx i]",
+    "button[title*=prox i]",
+    "button[title*=next i]",
+  ];
+
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+
+    try {
+      if (await locator.isVisible({ timeout: 250 })) {
+        await locator.click({ timeout: 1_500 });
+        await page.waitForTimeout(700);
+      }
+    } catch {
+      // Carrosseis sao opcionais; seguimos sem falhar.
     }
   }
 }
@@ -714,6 +747,81 @@ async function inspectDom(page, maxItems) {
       return ranked[0] || null;
     }
 
+    function collectBadges(node, productName) {
+      const badgePattern =
+        /(oferta|promo|clube|super barato|festival|real|sexta|carne|exclusiv|site|cpf|cliente|limite|máx|max|360|peso|unidade|leve|pague|desconto|especial)/i;
+      const selectorPattern =
+        /(badge|tag|flag|selo|chip|label|stamp|promo|offer|club|discount|pill|ribbon)/i;
+      const lines = [];
+      const seen = new Set();
+      const rawNodes = Array.from(
+        node.querySelectorAll("span, small, strong, div, p, button, a"),
+      ).slice(0, 80);
+
+      for (const element of rawNodes) {
+        const className = `${element.className || ""} ${element.id || ""}`;
+        const text = normalizeText(element.innerText || element.textContent);
+
+        if (!text || text.length > 80 || priceRegex.test(text)) {
+          continue;
+        }
+
+        if (productName && text.toLowerCase() === productName.toLowerCase()) {
+          continue;
+        }
+
+        const shouldInclude =
+          selectorPattern.test(className) ||
+          badgePattern.test(text) ||
+          /^-\d+%$/.test(text);
+
+        if (!shouldInclude) {
+          continue;
+        }
+
+        const key = text.toLowerCase();
+
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        lines.push(text);
+      }
+
+      const textCandidates = textLines(node.innerText)
+        .filter((line) => !priceRegex.test(line))
+        .filter((line) => line.length >= 2 && line.length <= 80)
+        .filter((line) => badgePattern.test(line) || /^-\d+%$/.test(line));
+
+      for (const line of textCandidates) {
+        const key = line.toLowerCase();
+
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        lines.push(line);
+      }
+
+      return lines.slice(0, 8);
+    }
+
+    function pickPromotionLabelFromBadges(badges) {
+      const prioritized = badges.find((badge) =>
+        /(festival|sexta|carne|super barato|exclusiv|site|clube|real|páscoa|pascoa)/i.test(
+          badge,
+        ),
+      );
+
+      if (prioritized) {
+        return prioritized;
+      }
+
+      return badges.find((badge) => /(oferta|promo|desconto)/i.test(badge)) || null;
+    }
+
     function extractItem(node) {
       const text = normalizeText(node.innerText || node.textContent);
       const priceState = extractPriceState(text);
@@ -724,6 +832,9 @@ async function inspectDom(page, maxItems) {
       const link = pickLink(node);
       const image = pickImage(node);
       const name = pickName(node, priceState.price);
+      const badges = collectBadges(node, name);
+      const promotionLabel = pickPromotionLabelFromBadges(badges);
+      const limitText = badges.find((badge) => /cpf|cliente|limite|máx|max/i.test(badge)) || null;
 
       if (!name || !priceState.price) {
         return null;
@@ -737,6 +848,12 @@ async function inspectDom(page, maxItems) {
         originalPrice: priceState.originalPrice,
         originalPriceValue: priceState.originalPriceValue,
         isPromotion: priceState.isPromotion,
+        promotionLabel,
+        badges,
+        campaignLabel: promotionLabel,
+        limitText,
+        isClubOffer: badges.some((badge) => /\bclub\b|\bclube\b/i.test(badge)),
+        isSiteExclusive: badges.some((badge) => /exclusiv|site/i.test(badge)),
         image,
         link,
       };
@@ -962,11 +1079,73 @@ async function extractDomWithHint(page, selectorHint, maxItems) {
         return lines[0] || null;
       }
 
+      function collectBadges(node, productName) {
+        const badgePattern =
+          /(oferta|promo|clube|super barato|festival|real|sexta|carne|exclusiv|site|cpf|cliente|limite|máx|max|360|peso|unidade|leve|pague|desconto|especial)/i;
+        const selectorPattern =
+          /(badge|tag|flag|selo|chip|label|stamp|promo|offer|club|discount|pill|ribbon)/i;
+        const lines = [];
+        const seen = new Set();
+        const rawNodes = Array.from(
+          node.querySelectorAll("span, small, strong, div, p, button, a"),
+        ).slice(0, 80);
+
+        for (const element of rawNodes) {
+          const className = `${element.className || ""} ${element.id || ""}`;
+          const text = normalizeText(element.innerText || element.textContent);
+
+          if (!text || text.length > 80 || /^R\$\s*\d/.test(text)) {
+            continue;
+          }
+
+          if (productName && text.toLowerCase() === productName.toLowerCase()) {
+            continue;
+          }
+
+          const shouldInclude =
+            selectorPattern.test(className) ||
+            badgePattern.test(text) ||
+            /^-\d+%$/.test(text);
+
+          if (!shouldInclude) {
+            continue;
+          }
+
+          const key = text.toLowerCase();
+
+          if (seen.has(key)) {
+            continue;
+          }
+
+          seen.add(key);
+          lines.push(text);
+        }
+
+        return lines.slice(0, 8);
+      }
+
+      function pickPromotionLabelFromBadges(badges) {
+        const prioritized = badges.find((badge) =>
+          /(festival|sexta|carne|super barato|exclusiv|site|clube|real|páscoa|pascoa)/i.test(
+            badge,
+          ),
+        );
+
+        if (prioritized) {
+          return prioritized;
+        }
+
+        return badges.find((badge) => /(oferta|promo|desconto)/i.test(badge)) || null;
+      }
+
       const items = nodes
         .map((node) => {
           const text = normalizeText(node.innerText || node.textContent);
           const priceState = extractPriceState(text);
           const name = pickName(node);
+          const badges = collectBadges(node, name);
+          const promotionLabel = pickPromotionLabelFromBadges(badges);
+          const limitText = badges.find((badge) => /cpf|cliente|limite|máx|max/i.test(badge)) || null;
 
           if (!name || !priceState?.price) {
             return null;
@@ -983,6 +1162,12 @@ async function extractDomWithHint(page, selectorHint, maxItems) {
             originalPrice: priceState.originalPrice,
             originalPriceValue: priceState.originalPriceValue,
             isPromotion: priceState.isPromotion,
+            promotionLabel,
+            badges,
+            campaignLabel: promotionLabel,
+            limitText,
+            isClubOffer: badges.some((badge) => /\bclub\b|\bclube\b/i.test(badge)),
+            isSiteExclusive: badges.some((badge) => /exclusiv|site/i.test(badge)),
             image: pickImage(node),
             link: pickLink(node),
           };
@@ -1012,9 +1197,9 @@ async function discoverCandidateLinks(page) {
   const links = await page.evaluate(
     ({ origin, maxLinks }) => {
       const includePattern =
-        /(produto|produtos|oferta|ofertas|encarte|categoria|catalog|departamento|buscar|busca|search|listar|shop|loja)/i;
+        /(produto|produtos|oferta|ofertas|encarte|categoria|catalog|departamento|buscar|busca|search|listar|shop|loja|todos os produtos|ver mais|mostrar mais|mais produtos|ver tudo|subcategoria|colec)/i;
       const excludePattern =
-        /(carrinho|cart|login|conta|privacidade|cookie|instagram|facebook|linkedin|blog|carreiras|fornecedor|contato|fale|portal)/i;
+        /(carrinho|cart|login|conta|privacidade|cookie|instagram|facebook|linkedin|blog|carreiras|fornecedor|contato|fale|portal|formas-de-pagamento|pagamento|institucional|quem-somos)/i;
 
       const candidates = Array.from(document.querySelectorAll("a[href]"))
         .map((anchor) => {
@@ -1045,16 +1230,32 @@ async function discoverCandidateLinks(page) {
           score += 40;
         }
 
+        if (/todos os produtos|ver tudo|mostrar tudo/i.test(haystack)) {
+          score += 34;
+        }
+
+        if (/ver mais|mostrar mais|mais produtos/i.test(haystack)) {
+          score += 28;
+        }
+
         if (/produtos/i.test(haystack)) {
           score += 20;
         }
 
-        if (/ofertas|encarte/i.test(haystack)) {
+        if (/categoria|departamento|subcategoria/i.test(haystack)) {
+          score += 18;
+        }
+
+        if (/\/categorias?\//i.test(candidate.href)) {
+          score += 16;
+        }
+
+        if (/\/departamentos?\//i.test(candidate.href)) {
           score += 12;
         }
 
-        if (/categoria|departamento/i.test(haystack)) {
-          score += 8;
+        if (/ofertas|encarte/i.test(haystack)) {
+          score += 6;
         }
 
         return score;
@@ -1221,6 +1422,18 @@ function normalizeProductObject(item, sourceUrl) {
     (value) => typeof value === "number" || typeof value === "string",
     false,
   );
+  const badgeValues = pickFlattenedValues(
+    flattened,
+    BADGE_KEY_PATTERN,
+    (value) => typeof value === "string" && value.length >= 2 && value.length <= 80,
+    12,
+  );
+  const limitValue = pickFlattenedValue(
+    flattened,
+    LIMIT_KEY_PATTERN,
+    (value) => typeof value === "string" && value.length >= 3 && value.length <= 80,
+    false,
+  );
 
   const normalizedName = sanitizeProductText(name);
   const priceState = extractNormalizedPriceState(item, flattened, priceValue);
@@ -1237,6 +1450,23 @@ function normalizeProductObject(item, sourceUrl) {
     priceState.currentPriceValue,
     priceState.originalPriceValue,
   );
+  const badges = normalizeBadgeList([
+    ...badgeValues,
+    priceState.promotionLabel,
+    item?.clube ? "Clube" : null,
+    item?.exclusive || item?.siteExclusive ? "Exclusivo do site" : null,
+  ]);
+  const limitText = normalizeLimitText(limitValue || badges.find((badge) => /cpf|cliente|limite/i.test(badge)));
+  const campaignLabel = deriveCampaignLabel({
+    promotionLabel: normalizedPromotionLabel,
+    badges,
+  });
+  const isClubOffer =
+    Boolean(item?.clube) ||
+    badges.some((badge) => /\bclub\b|\bclube\b/i.test(badge));
+  const isSiteExclusive =
+    Boolean(item?.exclusive || item?.siteExclusive) ||
+    badges.some((badge) => /exclusiv|site/i.test(badge));
   const isPromotion =
     Boolean(priceState.isPromotion) ||
     (priceState.originalPriceValue !== null &&
@@ -1254,6 +1484,11 @@ function normalizeProductObject(item, sourceUrl) {
       isPromotion: false,
       promotionLabel: null,
       discountPercent: null,
+      badges: [],
+      campaignLabel: null,
+      limitText: null,
+      isClubOffer: false,
+      isSiteExclusive: false,
       unit: null,
       image: null,
       link: null,
@@ -1271,6 +1506,11 @@ function normalizeProductObject(item, sourceUrl) {
       isPromotion: false,
       promotionLabel: null,
       discountPercent: null,
+      badges: [],
+      campaignLabel: null,
+      limitText: null,
+      isClubOffer: false,
+      isSiteExclusive: false,
       unit: null,
       image: null,
       link: null,
@@ -1288,6 +1528,11 @@ function normalizeProductObject(item, sourceUrl) {
       isPromotion: false,
       promotionLabel: null,
       discountPercent: null,
+      badges: [],
+      campaignLabel: null,
+      limitText: null,
+      isClubOffer: false,
+      isSiteExclusive: false,
       unit: null,
       image: null,
       link: null,
@@ -1304,6 +1549,11 @@ function normalizeProductObject(item, sourceUrl) {
     isPromotion,
     promotionLabel: normalizedPromotionLabel,
     discountPercent,
+    badges,
+    campaignLabel,
+    limitText,
+    isClubOffer,
+    isSiteExclusive,
     unit: normalizedUnit,
     image: normalizedImage,
     link: normalizedLink,
@@ -1449,6 +1699,13 @@ function pickFlattenedValue(flattened, keyPattern, validator, allowFallback = fa
   return fallback ? fallback[1] : null;
 }
 
+function pickFlattenedValues(flattened, keyPattern, validator, limit = 8) {
+  return flattened
+    .filter(([key, value]) => keyPattern.test(key) && validator(value))
+    .map(([, value]) => value)
+    .slice(0, limit);
+}
+
 function formatPrice(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -1518,6 +1775,71 @@ function sanitizeSimpleText(value) {
     .trim();
 
   return normalized || null;
+}
+
+function normalizeBadgeList(values) {
+  const seen = new Set();
+  const badges = [];
+
+  for (const value of values) {
+    const normalized = sanitizeSimpleText(value);
+
+    if (!normalized) {
+      continue;
+    }
+
+    if (PRICE_REGEX.test(normalized)) {
+      continue;
+    }
+
+    if (normalized.length < 2 || normalized.length > 80) {
+      continue;
+    }
+
+    const key = normalized.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    badges.push(normalized);
+  }
+
+  return badges.slice(0, 8);
+}
+
+function normalizeLimitText(value) {
+  const normalized = sanitizeSimpleText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return /cpf|cliente|limite|máx|max/i.test(normalized) ? normalized : null;
+}
+
+function deriveCampaignLabel({ promotionLabel, badges }) {
+  const candidates = [
+    promotionLabel,
+    ...(Array.isArray(badges) ? badges : []),
+  ]
+    .map((value) => sanitizeSimpleText(value))
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (/festival|sexta|carne|super barato|exclusiv|clube|real|páscoa|pascoa|site/i.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (const candidate of candidates) {
+    if (!/^oferta$|^promo(c|ç)ão$|^promo(c|ç)oes$|^clube$/i.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  return sanitizeSimpleText(promotionLabel);
 }
 
 function normalizeDiscountPercent(value, currentPriceValue, originalPriceValue) {
@@ -1746,8 +2068,7 @@ function uniqueUrls(urls) {
 }
 
 function dedupeProducts(items) {
-  const seen = new Set();
-  const deduped = [];
+  const deduped = new Map();
 
   for (const item of items) {
     const priceValue = parsePriceValue(item.priceValue ?? item.price);
@@ -1776,6 +2097,11 @@ function dedupeProducts(items) {
         priceValue,
         originalPriceValue,
       ),
+      badges: normalizeBadgeList(item.badges || []),
+      campaignLabel: sanitizeSimpleText(item.campaignLabel),
+      limitText: normalizeLimitText(item.limitText),
+      isClubOffer: Boolean(item.isClubOffer),
+      isSiteExclusive: Boolean(item.isSiteExclusive),
       unit: sanitizeSimpleText(item.unit),
       image: item.image || null,
       link: item.link || null,
@@ -1789,15 +2115,36 @@ function dedupeProducts(items) {
       .filter(Boolean)
       .join("|");
 
-    if (!normalized.name || !normalized.price || !key || seen.has(key)) {
+    if (!normalized.name || !normalized.price || !key) {
       continue;
     }
 
-    seen.add(key);
-    deduped.push(normalized);
+    const existing = deduped.get(key);
+
+    if (!existing || scoreNormalizedProduct(normalized) > scoreNormalizedProduct(existing)) {
+      deduped.set(key, normalized);
+    }
   }
 
-  return deduped;
+  return Array.from(deduped.values());
+}
+
+function scoreNormalizedProduct(item) {
+  let score = 0;
+
+  if (item.image) score += 3;
+  if (item.link) score += 3;
+  if (item.unit) score += 1;
+  if (item.originalPrice) score += 2;
+  if (item.discountPercent !== null && item.discountPercent !== undefined) score += 2;
+  if (item.promotionLabel) score += 2;
+  if (item.campaignLabel) score += 2;
+  if (item.limitText) score += 2;
+  if (item.isClubOffer) score += 1;
+  if (item.isSiteExclusive) score += 1;
+  if (Array.isArray(item.badges)) score += item.badges.length;
+
+  return score;
 }
 
 function emptyDomResult() {

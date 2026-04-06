@@ -10,6 +10,7 @@ const backend = createCatalogBackendService({
   dataRoot: process.env.CATALOG_API_DATA_ROOT || DEFAULT_DATA_ROOT,
 });
 const artifactsRoot = backend.getArtifactsRoot();
+const staticRoot = path.join(__dirname, "static");
 
 app.use(express.json({ limit: "2mb" }));
 app.use(applyCorsHeaders);
@@ -17,6 +18,11 @@ app.options(/.*/, (_req, res) => {
   res.status(204).end();
 });
 app.use("/artifacts/backend", express.static(artifactsRoot));
+app.use("/console", express.static(staticRoot));
+
+app.get("/", (_req, res) => {
+  res.redirect("/console/");
+});
 
 app.get("/v1/health", async (_req, res) => {
   const sources = await backend.listSources();
@@ -106,6 +112,19 @@ app.post("/v1/catalog/run", requireApiToken, async (req, res) => {
   }
 });
 
+app.post("/v1/catalog/run-batch", requireApiToken, async (req, res) => {
+  try {
+    const wait = readBooleanFlag(req.body?.wait, req.query.wait, false);
+    const batch = await backend.runBatch(req.body || {}, { wait });
+
+    res.status(wait ? 200 : 202).json({
+      batch: serializeBatchForResponse(batch),
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ error: error.message });
+  }
+});
+
 app.get("/v1/sources/:sourceId/catalog/latest", async (req, res) => {
   try {
     const latest = await backend.getLatestCatalog(req.params.sourceId);
@@ -151,6 +170,36 @@ app.get("/v1/jobs", async (req, res) => {
     });
     res.json({
       items: items.map(serializeJobForResponse),
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ error: error.message });
+  }
+});
+
+app.get("/v1/batches", async (req, res) => {
+  try {
+    const items = await backend.listBatches({
+      limit: toPositiveInt(req.query.limit, 50),
+    });
+    res.json({
+      items: items.map(serializeBatchForResponse),
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ error: error.message });
+  }
+});
+
+app.get("/v1/batches/:batchId", async (req, res) => {
+  try {
+    const item = await backend.getBatch(req.params.batchId);
+
+    if (!item) {
+      res.status(404).json({ error: "Lote não encontrado." });
+      return;
+    }
+
+    res.json({
+      item: serializeBatchForResponse(item),
     });
   } catch (error) {
     res.status(error.statusCode || 400).json({ error: error.message });
@@ -308,6 +357,27 @@ function serializeJobForResponse(job) {
     artifactUrls: mapArtifactUrls({
       ...(job.output || {}),
       logPath: job.logPath || null,
+    }),
+  };
+}
+
+function serializeBatchForResponse(batch) {
+  if (!batch) {
+    return null;
+  }
+
+  return {
+    ...batch,
+    items: Array.isArray(batch.items)
+      ? batch.items.map((item) => ({
+          ...item,
+          artifactUrls: mapArtifactUrls({
+            ...(item.output || {}),
+          }),
+        }))
+      : [],
+    artifactUrls: mapArtifactUrls({
+      ...(batch.output || {}),
     }),
   };
 }

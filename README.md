@@ -10,6 +10,7 @@ Este repositório foi reduzido para backend-only. Ele:
 - registra logs por job
 - salva artefatos locais
 - envia o resultado final para um webhook
+- pode enviar os produtos para outro webhook em lotes
 
 ## Scripts
 
@@ -30,6 +31,9 @@ CATALOG_API_TOKEN=troque-este-token
 CATALOG_API_ALLOW_ORIGIN=*
 CATALOG_API_WEBHOOK_URL=https://seu-webhook.example.com/catalog
 CATALOG_API_WEBHOOK_TOKEN=
+CATALOG_API_PRODUCTS_WEBHOOK_URL=https://seu-webhook.example.com/products
+CATALOG_API_PRODUCTS_WEBHOOK_TOKEN=
+CATALOG_API_PRODUCTS_WEBHOOK_BATCH_SIZE=10
 ```
 
 ## API
@@ -51,10 +55,13 @@ PATCH /v1/sources/:sourceId
 DELETE /v1/sources/:sourceId
 POST /v1/sources/:sourceId/run
 POST /v1/catalog/run
+POST /v1/catalog/run-batch
 GET  /v1/jobs
 GET  /v1/jobs/:jobId
 GET  /v1/jobs/:jobId/logs
 GET  /v1/jobs/:jobId/logs/stream
+GET  /v1/batches
+GET  /v1/batches/:batchId
 GET  /v1/sources/:sourceId/jobs
 GET  /v1/sources/:sourceId/catalog/latest
 ```
@@ -83,6 +90,28 @@ Rodar job:
 {
   "wait": false,
   "reason": "n8n"
+}
+```
+
+Rodar lote sequencial:
+
+```json
+{
+  "label": "Lote Gaspar",
+  "city": "Gaspar",
+  "adapterHint": "auto",
+  "maxSections": 20,
+  "maxPagesPerSection": 12,
+  "maxItemsPerPage": 500,
+  "workerCount": 3,
+  "headless": true,
+  "wait": false,
+  "reason": "api",
+  "items": [
+    { "label": "SuperKoch", "url": "https://www.superkoch.com.br" },
+    { "label": "Komprao", "url": "https://www.komprao.com.br" },
+    { "label": "Rede Top", "url": "https://www.redetoponline.com.br" }
+  ]
 }
 ```
 
@@ -143,6 +172,17 @@ O payload inclui:
 - `contextUrl`
 - `metrics`
 - `artifactUrls`
+
+## Webhook de produtos
+
+Se `CATALOG_API_PRODUCTS_WEBHOOK_URL` estiver configurado, cada job concluído com produtos envia lotes em JSON.
+
+- cada chamada envia um array
+- o tamanho padrão do lote é `10`
+- o tamanho pode ser alterado por `CATALOG_API_PRODUCTS_WEBHOOK_BATCH_SIZE`
+- também é possível definir `productsWebhookUrl`, `productsWebhookToken` e `productsWebhookBatchSize` por fonte ou por request
+
+Cada item do array repete o contexto do job e traz os campos do produto no mesmo objeto.
 
 ## Deploy com Docker
 
